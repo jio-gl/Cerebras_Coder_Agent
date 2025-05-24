@@ -1,12 +1,22 @@
 # Coder Agent
 
-A minimalistic coding agent using OpenRouter API and Cerebras provider for LLM API calls. This agent is inspired by Cursor's coding agent but designed to be simpler and more focused.
+A minimalistic coding agent using OpenRouter API and Cerebras provider for LLM API calls. The agent's primary feature is its ability to self-rewrite and improve its own codebase, making it a truly evolving system. While inspired by Cursor's coding agent, it's designed with self-improvement as its core capability.
 
-## Features
+## Key Feature: Self-Rewrite
+
+The agent's most powerful feature is its ability to rewrite and improve itself. Through a sophisticated process, it:
+1. Analyzes its current implementation
+2. Generates improved specifications
+3. Creates a new version with enhancements
+4. Validates the new version through comprehensive testing
+5. Ensures backward compatibility
+
+This self-improvement cycle allows the agent to evolve and adapt to new requirements while maintaining stability.
+
+## Additional Features
 
 - Ask questions about your codebase
-- Make changes to your codebase through natural language prompts
-- Self-rewrite capability to improve itself
+- Make changes through natural language prompts
 - Language-agnostic code analysis and modification
 - Automatic command execution and iteration
 - Interactive mode for manual confirmation of changes
@@ -31,24 +41,24 @@ OPENROUTER_API_KEY=your_api_key_here
 
 ## Usage
 
-The agent can be used in several ways:
+### Self-Rewrite (Primary Feature)
 
-### Ask Questions
+```bash
+coder --self-rewrite
+```
 
+This command initiates the self-improvement process, creating a new version with enhanced capabilities.
+
+### Other Operations
+
+Ask Questions:
 ```bash
 coder --ask "What does this function do?"
 ```
 
-### Make Changes
-
+Make Changes:
 ```bash
 coder --agent "Add error handling to this function"
-```
-
-### Self-Rewrite
-
-```bash
-coder --self-rewrite
 ```
 
 ### Additional Options
