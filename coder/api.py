@@ -22,7 +22,7 @@ class OpenRouterClient:
         messages: List[Dict[str, str]],
         model: str = "qwen/qwen3-32b",
         temperature: float = 0.7,
-        max_tokens: int = 16000,
+        max_tokens: int = 24000,
         tools: Optional[List[Dict]] = None,
         tool_choice: Optional[str] = None,
         response_format: Optional[Dict] = None
