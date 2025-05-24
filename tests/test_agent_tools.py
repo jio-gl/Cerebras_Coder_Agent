@@ -145,7 +145,7 @@ class TestToolCallExecution:
                 "arguments": json.dumps({})
             }
         }
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Unknown tool: invalid_tool"):
             agent._execute_tool_call(tool_call)
 
 class TestToolInteraction:

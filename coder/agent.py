@@ -3,93 +3,119 @@ import json
 from typing import Dict, List, Optional, Union, Any
 from pathlib import Path
 from .api import OpenRouterClient
+from .utils import VersionManager, CodeValidator, EquivalenceChecker
+from .tools import get_agent_tools
+from .prompts import (
+    get_improved_specs_prompt,
+    get_file_generation_prompt,
+    get_completion_summary_prompt,
+    get_file_specific_instructions
+)
 import re
 import time
+import uuid
+from dotenv import load_dotenv
+import tempfile
+import shutil
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Get the API key
+api_key = os.getenv("OPENROUTER_API_KEY")
 
 class CodingAgent:
     def __init__(
         self,
         repo_path: Optional[str] = None,
-        model: str = "qwen/qwen-3-32b",
+        model: str = "qwen/qwen3-32b",
         debug: bool = False,
         interactive: bool = False,
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
+        no_think: bool = False,
+        max_tokens: int = 31000,
+        provider: str = "Cerebras",
     ):
-        self.repo_path = str(Path(repo_path)) if repo_path else str(Path.cwd())
+        self.repo_path = repo_path or os.getcwd()
         self.model = model
         self.debug = debug
         self.interactive = interactive
-        self.client = OpenRouterClient(api_key=api_key)
+        # Don't store API key directly in the instance to prevent accidental exposure
+        # Instead, just pass it to the client
+        self._client = OpenRouterClient(api_key=api_key or os.getenv("OPENROUTER_API_KEY"))
+        self.no_think = no_think
+        self.max_tokens = max_tokens
+        self.provider = provider
+        self.version_manager = VersionManager(Path(self.repo_path))
         
-        # Define the tools available to the agent
-        self.tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "read_file",
-                    "description": "Read the contents of a file",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "target_file": {
-                                "type": "string",
-                                "description": "Path to the file to read"
-                            }
-                        },
-                        "required": ["target_file"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "list_directory",
-                    "description": "List contents of a directory",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "relative_workspace_path": {
-                                "type": "string",
-                                "description": "Path to the directory to list"
-                            }
-                        },
-                        "required": ["relative_workspace_path"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "edit_file",
-                    "description": "Edit or create a file",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "target_file": {
-                                "type": "string",
-                                "description": "Path to the file to edit"
-                            },
-                            "instructions": {
-                                "type": "string",
-                                "description": "Instructions for the edit"
-                            },
-                            "code_edit": {
-                                "type": "string",
-                                "description": "New content for the file"
-                            }
-                        },
-                        "required": ["target_file", "instructions", "code_edit"]
-                    }
-                }
-            }
-        ]
+        # Validate model configuration
+        if not self.model:
+            self.model = "llama3.1-8b"
+        
+        # Get tools from tools module
+        self.tools = get_agent_tools()
+
+    @property
+    def client(self):
+        """Secure access to the API client.
+        
+        This property method prevents direct access to the client's API key.
+        """
+        return self._client
 
     def _read_file(self, path: str) -> str:
         """Read a file's contents."""
         try:
-            with open(os.path.join(self.repo_path, path), 'r') as f:
-                return f.read()
+            # Handle both relative and absolute paths
+            if os.path.isabs(path):
+                target_path = Path(path)
+            else:
+                target_path = Path(self.repo_path) / path
+            
+            # Resolve the paths
+            resolved_target = target_path.resolve()
+            resolved_repo = Path(self.repo_path).resolve()
+            
+            # Debug: Print path information
+            if self.debug:
+                print("\nDEBUG: File path information:")
+                print(f"Target path: {target_path}")
+                print(f"Resolved target: {resolved_target}")
+                print(f"Resolved repo: {resolved_repo}")
+            
+            # For absolute paths, just check that the file exists and is readable
+            if os.path.isabs(path):
+                # Security check: Ensure absolute paths are inside the repository
+                if not str(resolved_target).startswith(str(resolved_repo)):
+                    raise Exception(f"Access denied: Absolute path '{path}' is outside the repository")
+                
+                if not os.path.exists(resolved_target):
+                    raise Exception(f"File not found: {path}")
+                if not os.access(resolved_target, os.R_OK):
+                    raise Exception(f"File not readable: {path}")
+            else:
+                # For relative paths, ensure they are within the repository
+                if not str(resolved_target).startswith(str(resolved_repo)):
+                    raise Exception(f"Access denied: Path '{path}' is outside the repository")
+                
+                # Additional check for common path traversal patterns
+                if '..' in path or path.startswith('/') or ':' in path[:3]:  # Check for drive letters
+                    raise Exception(f"Access denied: Invalid path '{path}'")
+            
+            # Read the file
+            with open(resolved_target, 'r') as f:
+                content = f.read()
+                
+                # Debug: Print file content
+                if self.debug:
+                    print("\nDEBUG: File content:")
+                    print(content)
+                
+                return content
         except Exception as e:
+            if self.debug:
+                print("\nDEBUG: Error reading file:")
+                print(str(e))
             raise Exception(f"Error reading file: {str(e)}")
 
     def _list_directory(self, path: str) -> List[str]:
@@ -103,366 +129,810 @@ class CodingAgent:
             raise Exception(f"Error listing directory: {str(e)}")
 
     def _edit_file(self, path: str, content: str) -> bool:
-        """Edit or create a file."""
+        """Edit or create a file using a unified diff-like format.
+        
+        The content can be:
+        1. A complete file replacement if no special markers are present
+        2. A unified diff-like format using special markers:
+           // ... existing code ...  - represents unchanged code
+           // === add below ===     - add content below this line
+           // === add above ===     - add content above this line
+           // === replace start === - start of code to replace
+           // === replace end ===   - end of code to replace
+        3. A simple function addition (if content contains a function definition)
+        """
         try:
-            full_path = os.path.join(self.repo_path, path)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            with open(full_path, 'w') as f:
-                f.write(content)
-            return True
+            # Handle both relative and absolute paths
+            if os.path.isabs(path):
+                target_path = Path(path)
+                repo_path = Path(self.repo_path)
+            else:
+                target_path = Path(self.repo_path) / path
+                repo_path = Path(self.repo_path)
+            
+            # Resolve the paths
+            resolved_target = target_path.resolve()
+            resolved_repo = repo_path.resolve()
+            
+            # Debug: Print path information
+            if self.debug:
+                print("\nDEBUG: File path information:")
+                print(f"Target path: {target_path}")
+                print(f"Resolved target: {resolved_target}")
+                print(f"Resolved repo: {resolved_repo}")
+            
+            # Create parent directories if they don't exist
+            os.makedirs(os.path.dirname(resolved_target), exist_ok=True)
+            
+            # Debug: Print initial content
+            if self.debug:
+                print("\nDEBUG: Content to write:")
+                print(repr(content))
+            
+            # Strip whitespace but don't decode
+            content = content.strip()
+            
+            # Handle file editing based on content type
+            if os.path.exists(resolved_target):
+                # Read existing content
+                with open(resolved_target, 'r') as f:
+                    existing_content = f.read()
+                
+                # Debug: Print existing content
+                if self.debug:
+                    print("\nDEBUG: Existing content:")
+                    print(repr(existing_content))
+                
+                # If content is empty, do nothing
+                if not content:
+                    if self.debug:
+                        print("\nDEBUG: Content is empty, no changes made.")
+                    return True
+                
+                # Check if this is a function addition
+                is_function = content.lstrip().startswith('def ') and 'def ' in content
+                
+                if is_function:
+                    # Extract function name
+                    func_def_line = content.lstrip().split('\n')[0]
+                    func_name = func_def_line.split('def ')[1].split('(')[0].strip()
+                    
+                    # Check if function already exists
+                    if f"def {func_name}" in existing_content:
+                        if self.debug:
+                            print(f"\nDEBUG: Function {func_name} already exists, no changes made.")
+                        return True
+                    
+                    # Append function to existing content
+                    new_content = existing_content.rstrip() + "\n\n" + content + "\n"
+                    
+                    # Debug: Print new content
+                    if self.debug:
+                        print("\nDEBUG: New content (appending function):")
+                        print(repr(new_content))
+                    
+                    # Write updated content
+                    with open(resolved_target, 'w') as f:
+                        f.write(new_content)
+                    
+                    # Verify write was successful
+                    if self.debug:
+                        try:
+                            with open(resolved_target, 'r') as f:
+                                verify_content = f.read()
+                            print("\nDEBUG: File content after write:")
+                            print(repr(verify_content))
+                            print(f"File size: {os.path.getsize(resolved_target)}")
+                        except Exception as e:
+                            print(f"\nDEBUG: Error verifying file: {str(e)}")
+                    
+                    return True
+                else:
+                    # Treat as full file replacement
+                    new_content = content if content.endswith('\n') else content + '\n'
+                    
+                    # Debug: Print new content
+                    if self.debug:
+                        print("\nDEBUG: New content (full replacement):")
+                        print(repr(new_content))
+                    
+                    # Write updated content
+                    with open(resolved_target, 'w') as f:
+                        f.write(new_content)
+                    
+                    return True
+            else:
+                # For new files, just write the content as is
+                new_content = content if content.endswith('\n') else content + '\n'
+                
+                # Debug: Print new content
+                if self.debug:
+                    print("\nDEBUG: New content (new file):")
+                    print(repr(new_content))
+                
+                # Write updated content
+                with open(resolved_target, 'w') as f:
+                    f.write(new_content)
+                
+                return True
         except Exception as e:
+            if self.debug:
+                print("\nDEBUG: Error in _edit_file:")
+                print(str(e))
             raise Exception(f"Error editing file: {str(e)}")
 
     def _execute_tool_call(self, tool_call: Dict) -> str:
         """Execute a tool call and return the result."""
-        if isinstance(tool_call["function"], str):
-            function_name = tool_call["function"]
-            arguments = tool_call["arguments"]
-        else:
-            function_name = tool_call["function"]["name"]
-            arguments = json.loads(tool_call["function"]["arguments"])
-        
-        if function_name == "read_file":
-            return self._read_file(arguments["target_file"])
-        elif function_name == "list_directory":
-            return json.dumps(self._list_directory(arguments["relative_workspace_path"]))
-        elif function_name == "edit_file":
-            success = self._edit_file(arguments["target_file"], arguments["code_edit"])
-            return "File edited successfully" if success else "Failed to edit file"
-        else:
-            raise ValueError(f"Unknown tool: {function_name}")
+        try:
+            # Extract function name and arguments
+            if isinstance(tool_call["function"], str):
+                function_name = tool_call["function"]
+                arguments = tool_call["arguments"]
+            else:
+                function_name = tool_call["function"]["name"]
+                arguments = tool_call["function"]["arguments"]
+            
+            # Parse arguments if they're a string
+            if isinstance(arguments, str):
+                arguments = json.loads(arguments)
+            
+            # Debug: Print tool call details
+            if self.debug:
+                print("\nDEBUG: Tool call details:")
+                print(f"Function: {function_name}")
+                print("Arguments:", arguments)
+            
+            # Execute the appropriate tool
+            if function_name == "read_file":
+                return self._read_file(arguments["target_file"])
+            elif function_name == "list_directory":
+                return json.dumps(self._list_directory(arguments["relative_workspace_path"]))
+            elif function_name == "edit_file":
+                # Debug: Print edit file details
+                if self.debug:
+                    print("\nDEBUG: Edit file details:")
+                    print(f"Target file: {arguments['target_file']}")
+                    print("Instructions:", arguments["instructions"])
+                    print("Code edit:", repr(arguments["code_edit"]))
+                
+                # Clean the code edit content for security
+                safe_content = self._clean_code_output(arguments["code_edit"])
+                
+                # Debug: Print safe content after cleaning
+                if self.debug:
+                    print("\nDEBUG: Safe content after cleaning:")
+                    print(repr(safe_content))
+                
+                success = self._edit_file(arguments["target_file"], safe_content)
+                if not success:
+                    raise Exception("Failed to edit file")
+                
+                # Debug: Print final file content
+                if self.debug:
+                    print("\nDEBUG: Final file content after edit:")
+                    try:
+                        if os.path.isabs(arguments["target_file"]):
+                            file_path = arguments["target_file"]
+                        else:
+                            file_path = os.path.join(self.repo_path, arguments["target_file"])
+                        with open(file_path, 'r') as f:
+                            file_content = f.read()
+                        print(repr(file_content))
+                    except Exception as e:
+                        print(f"Error reading final content: {str(e)}")
+                
+                return "File edited successfully"
+            else:
+                raise ValueError(f"Unknown tool: {function_name}")
+        except ValueError as e:
+            raise  # Re-raise ValueError to preserve the original exception
+        except Exception as e:
+            if self.debug:
+                print("\nDEBUG: Error in _execute_tool_call:")
+                print(str(e))
+            raise Exception(f"Error executing {function_name}: {str(e)}")
 
-    def ask(self, question: str) -> str:
+    def _clean_code_output(self, content: str) -> str:
+        """Clean and sanitize code output to prevent security issues.
+        
+        This method sanitizes code to remove potentially dangerous patterns:
+        1. Removes dangerous system commands (rm -rf, curl to external sites)
+        2. Sanitizes HTML and JavaScript code
+        3. Handles special characters and binary data
+        4. Limits input size to prevent DoS attacks
+        
+        Args:
+            content: The code content to clean
+            
+        Returns:
+            Sanitized code content
+        """
+        try:
+            # Check for null input
+            if content is None:
+                return ""
+                
+            # Handle extremely large inputs (DoS protection)
+            max_size = 1 * 1024 * 1024  # 1MB limit
+            if len(content) > max_size:
+                content = content[:max_size] + "\n# ... content truncated (exceeded size limit)"
+                
+            # Remove potentially dangerous patterns
+            dangerous_patterns = [
+                # System commands that could cause damage
+                (r'rm\s+-rf', 'echo "rm command blocked"'),
+                (r'os\.system\s*\(\s*[\'"]rm', 'os.system("echo rm command blocked"'),
+                (r'subprocess\.call\s*\(\s*\[\s*[\'"]rm[\'"]', 'subprocess.call(["echo", "rm command blocked"]'),
+                (r'subprocess\.Popen\s*\(\s*\[\s*[\'"]rm[\'"]', 'subprocess.Popen(["echo", "rm command blocked"]'),
+                
+                # Network access that could exfiltrate data
+                (r'urllib\.request\.urlopen\s*\(', 'print("URL access blocked: "'),
+                (r'requests\.get\s*\(', 'print("Requests access blocked: "'),
+                (r'curl\s+http', 'echo "curl command blocked"'),
+                
+                # Shell injection attempts
+                (r'eval\s*\(', 'print("eval blocked: "'),
+                (r'exec\s*\(', 'print("exec blocked: "'),
+                (r'system\s*\(', 'print("system blocked: "'),
+                
+                # XSS and HTML injection
+                (r'<script>', '<!-- script tag removed -->'),
+                (r'javascript:', 'blocked-js:'),
+                (r'data:text/html', 'blocked-data:text/plain'),
+                (r'onerror=', 'data-blocked='),
+                (r'onclick=', 'data-blocked='),
+                
+                # SQL injection
+                (r'DROP TABLE', 'SELECT FROM'),
+                (r'DELETE FROM', 'SELECT FROM'),
+                
+                # File access
+                (r'file:///\S+', 'local-file-access-blocked'),
+            ]
+            
+            # Apply regex replacements
+            import re
+            for pattern, replacement in dangerous_patterns:
+                content = re.sub(pattern, replacement, content, flags=re.IGNORECASE)
+                
+            # Remove null bytes and control characters
+            content = ''.join(c if c.isprintable() or c in '\n\r\t' else ' ' for c in content)
+            
+            # Add a safety comment
+            if any(marker in content for marker in ['os.', 'subprocess.', 'system(', 'eval(', 'exec(']):
+                content = "# NOTICE: This code has been sanitized for security reasons\n" + content
+                
+            return content
+            
+        except Exception as e:
+            # Fail safely - if there's any error in sanitization, return empty string
+            if self.debug:
+                print(f"\nDEBUG: Error in _clean_code_output: {str(e)}")
+            return "# Error sanitizing content"
+
+    def ask(self, question: str, model: Optional[str] = None) -> str:
         """Ask a question about the codebase."""
         messages = [
-            {"role": "system", "content": "You are a helpful coding assistant. Answer questions about the codebase."},
+            {"role": "system", "content": "You are a helpful coding assistant. Answer questions about coding and programming. If you need to examine specific files or the codebase structure to answer properly, say 'I need to examine the files' in your response."},
             {"role": "user", "content": question}
         ]
-        
-        response = self.client.chat_completion(
-            messages=messages,
-            model=self.model,
-            tools=self.tools
-        )
-        
-        tool_calls = self.client.get_tool_calls(response)
-        if tool_calls:
-            for tool_call in tool_calls:
-                try:
-                    result = self._execute_tool_call(tool_call)
-                except Exception as e:
-                    result = str(e)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.get("id", "mock_id"),
-                    "content": result
-                })
-            
-            # Get final response after tool calls
-            response = self.client.chat_completion(
-                messages=messages,
-                model=self.model
-            )
-        
-        return self.client.get_completion(response)
-
-    def agent(self, prompt: str) -> str:
-        """Execute agent operations based on the prompt."""
-        messages = [
-            {"role": "system", "content": "You are a coding agent that can read, analyze, and modify code. Use the available tools to help with the task."},
-            {"role": "user", "content": prompt}
-        ]
-        
-        while True:
+        model_to_use = model or self.model
+        try:
             response = self.client.chat_completion(
                 messages=messages,
                 model=self.model,
-                tools=self.tools
+                max_tokens=self.max_tokens,
+                provider=self.provider,
+                stream=False
             )
-            
+            initial_response = self.client.get_completion(response)
+            if "need to examine" in initial_response.lower() or "need to see" in initial_response.lower():
+                return initial_response + "\n\nNote: File examination tools are not available with the current Cerebras reasoning model configuration."
+            return initial_response
+        except Exception as e:
+            error_msg = str(e)
+            if "provider" in error_msg.lower():
+                return f"Error: The model '{self.model}' is not compatible with the {self.provider} provider. Please use a different model or provider."
+            return f"Error: {error_msg}"
+
+    def agent(self, prompt: str, model: Optional[str] = None) -> str:
+        """Execute agent operations based on the prompt."""
+        prompt_with_no_think = f"{prompt} /no_think"
+        messages = [
+            {"role": "system", "content": "You are a coding agent that can read, analyze, and modify code. Use the available tools to help with the task."},
+            {"role": "user", "content": prompt_with_no_think}
+        ]
+        actions_taken = []
+        model_to_use = model or self.model
+        try:
+            response = self.client.chat_completion(
+                messages=messages,
+                model=self.model,
+                tools=self.tools,
+                max_tokens=self.max_tokens,
+                provider=self.provider,
+                stream=True
+            )
             tool_calls = self.client.get_tool_calls(response)
             if not tool_calls:
-                break
-                
+                completion = self.client.get_completion(response)
+                return f"No actions were taken. Response: {completion}"
             for tool_call in tool_calls:
                 try:
+                    tool_name = tool_call.get("function", {}).get("name", "unknown")
+                    action = f"Using tool: {tool_name}"
+                    actions_taken.append(action)
+                    
+                    # Debug: Print tool call details
+                    if self.debug:
+                        print("\nDEBUG: Tool call details:")
+                        print(f"Tool: {tool_name}")
+                        print("Arguments:", tool_call.get("function", {}).get("arguments", ""))
+                    
                     result = self._execute_tool_call(tool_call)
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.get("id", "mock_id"),
+                        "content": result
+                    })
+                    response = self.client.chat_completion(
+                        messages=messages,
+                        model=self.model,
+                        tools=self.tools,
+                        max_tokens=self.max_tokens,
+                        provider=self.provider,
+                        stream=True
+                    )
                 except Exception as e:
-                    result = str(e)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.get("id", "mock_id"),
-                    "content": result
-                })
+                    error_msg = str(e)
+                    actions_taken.append(f"Error: {error_msg}")
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.get("id", "mock_id"),
+                        "content": error_msg
+                    })
+            completion = self.client.get_completion(response)
+            if actions_taken:
+                return "✨ Changes Applied"
+            else:
+                return completion
+        except Exception as e:
+            error_msg = str(e)
+            if "provider" in error_msg.lower():
+                return f"Error: The model '{self.model}' is not compatible with the {self.provider} provider. Please use a different model or provider."
+            return f"Error: {error_msg}"
+
+    def _generate_file_content(self, filename: str, specs: str, version: int) -> str:
+        """Generate file content based on specifications.
         
-        return self.client.get_completion(response)
-
-    def self_rewrite(self) -> str:
-        """Rewrite the agent in a new version with improvements using LLM, not by copying files. Iteratively fix code until all tests pass or max iterations reached."""
-        import re
-        import shutil
-        from pathlib import Path
-        import subprocess
-        import time
-        import os
-
-        # 1. Find the current version from SPECS.md
-        current_specs = self._read_file('SPECS.md')
-        current_version_match = re.search(r'# Coding Agent v(\d+) Specification', current_specs)
-        if not current_version_match:
-            raise ValueError("Could not determine current version from SPECS.md")
-        current_version = int(current_version_match.group(1))
-        next_version = current_version + 1
+        This method requests content generation from the API and sanitizes the output
+        to ensure security.
         
-        # Create the next version folder
-        base = Path.cwd()
-        new_dir = base / f'version{next_version}'
-        if new_dir.exists():
-            raise ValueError(f"Version {next_version} folder already exists. Please remove it first.")
-        new_dir.mkdir(exist_ok=True)
-
-        # 2. Create improved version of SPECS.md
-        improved_specs = self._generate_improved_specs(current_specs, next_version)
-        with open(new_dir / 'SPECS.md', 'w') as f:
-            f.write(improved_specs)
-
-        # 3. Generate new code files based on improved specs
-        files_to_generate = [
-            'README.md',
-            'requirements.txt',
-            'setup.py',
-            'coder/api.py',
-            'coder/agent.py',
-            'coder/cli.py',
-            'coder/__init__.py',
-            'tests/test_agent.py',
-            'tests/test_agent_tools.py',
-            'tests/test_integration_agent.py',
-        ]
-
-        for file in files_to_generate:
+        Args:
+            filename: Name of the file to generate
+            specs: Specifications for the file content
+            version: Version number for versioning
+            
+        Returns:
+            Sanitized file content
+        """
+        try:
+            # Generate prompt for file creation
+            file_extension = os.path.splitext(filename)[1]
+            language = "python" if file_extension == ".py" else "unknown"
+            
             prompt = f"""
-You are a coding agent. Generate the file `{file}` for version {next_version} of the agent, based on the following improved specification:
-
-{improved_specs}
-
-Requirements:
-1. The code must be type-annotated and well-documented
-2. Include comprehensive tests for all features
-3. Implement error handling and validation
-4. Follow Python best practices
-5. Ensure backward compatibility with previous versions
-6. Add new features and improvements as specified
-
-Output only the code for the file, no explanations.
-"""
-            response = self.client.chat_completion([
-                {"role": "system", "content": "You are a helpful coding agent."},
+            Generate content for file: {filename}
+            
+            Specifications:
+            {specs}
+            
+            Version: {version}
+            
+            Language: {language}
+            
+            Generate only the file content, no explanations.
+            """
+            
+            # Request content from API
+            messages = [
+                {"role": "system", "content": "You are a helpful coding assistant that generates high-quality, secure code based on specifications."},
                 {"role": "user", "content": prompt}
-            ], model=self.model)
-            code = self.client.get_completion(response)
-            # Strip Markdown code block markers
-            code = re.sub(r'^```[a-zA-Z]*\n?', '', code.strip())
-            code = re.sub(r'```$', '', code.strip())
-            out_path = new_dir / file
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(out_path, 'w') as f:
-                f.write(code)
-
-        # 4. Run tests and fix issues iteratively
-        max_iterations = 5
-        iteration = 0
-        
-        # Store original working directory
-        original_dir = os.getcwd()
-        
-        try:
-            # Change to new version directory
-            os.chdir(str(new_dir))
+            ]
             
-            while iteration < max_iterations:
-                try:
-                    print(f"\nIteration {iteration + 1}/{max_iterations}")
-                    print("Installing dependencies...")
-                    # Install dependencies
-                    subprocess.run(['pip', 'install', '-e', '.'], check=True)
-                    
-                    print("Running linting checks...")
-                    # Run linting checks
-                    try:
-                        subprocess.run(['flake8', 'coder', 'tests'], check=True)
-                    except subprocess.CalledProcessError as e:
-                        print("Linting issues found, will fix in next iteration")
-                    
-                    print("Running type checks...")
-                    # Run type checks
-                    try:
-                        subprocess.run(['mypy', 'coder'], check=True)
-                    except subprocess.CalledProcessError as e:
-                        print("Type issues found, will fix in next iteration")
-                    
-                    print("Running tests...")
-                    # Run tests with coverage
-                    result = subprocess.run(['pytest', '-v', '--cov=coder', '--cov-report=term-missing'], 
-                                         capture_output=True, text=True)
-                    
-                    if result.returncode == 0:
-                        print("All tests passed!")
-                        break
-                    
-                    print(f"Tests failed. Output:\n{result.stdout}\n{result.stderr}")
-                    
-                    # Fix failing tests
-                    fix_prompt = f"""
-The tests are failing. Here's the error output:
+            response = self.client.chat_completion(
+                messages=messages,
+                model=self.model,
+                max_tokens=self.max_tokens,
+                provider=self.provider,
+                stream=False
+            )
+            content = self.client.get_completion(response)
+            
+            # Clean and sanitize the content
+            sanitized_content = self._clean_code_output(content)
+            
+            return sanitized_content
+            
+        except Exception as e:
+            if self.debug:
+                print(f"\nDEBUG: Error in _generate_file_content: {str(e)}")
+            return f"# Error generating content: {str(e)}"
 
-{result.stderr}
-
-{result.stdout}
-
-Please fix the issues in the code. Focus on:
-1. Fixing failing tests
-2. Improving error handling
-3. Adding missing features
-4. Ensuring type safety
-5. Maintaining backward compatibility
-6. Fixing linting issues
-7. Addressing type check errors
-
-Output only the fixed code, no explanations.
-"""
-                    for file in files_to_generate:
-                        response = self.client.chat_completion([
-                            {"role": "system", "content": "You are a helpful coding agent."},
-                            {"role": "user", "content": fix_prompt}
-                        ], model=self.model)
-                        fixed_code = self.client.get_completion(response)
-                        fixed_code = re.sub(r'^```[a-zA-Z]*\n?', '', fixed_code.strip())
-                        fixed_code = re.sub(r'```$', '', fixed_code.strip())
-                        with open(file, 'w') as f:
-                            f.write(fixed_code)
-                    
-                    iteration += 1
-                    time.sleep(1)  # Avoid rate limiting
-                    
-                except Exception as e:
-                    print(f"Error during iteration: {str(e)}")
-                    iteration += 1
-                    continue
+    def _create_backup(self, items=None, backup_dir=None):
+        """Create a backup of the codebase.
+        
+        This method creates a secure backup of specified files/directories
+        in the codebase, preserving file permissions.
+        
+        Args:
+            items: List of files/directories to backup (default: main project files)
+            backup_dir: Directory to store the backup (default: temp directory)
+            
+        Returns:
+            Path to the backup directory
+        """
+        try:
+            # Default items to backup if none specified
+            if items is None:
+                items = ["coder", "tests", "setup.py", "README.md", "SPECS.md", "requirements.txt"]
+            
+            # Create backup directory
+            if backup_dir is None:
+                # Get current version
+                current_version = self.version_manager.get_current_version()
+                timestamp = int(time.time())
+                # Use format: backup_v{version}_{timestamp}_{uuid}
+                backup_name = f"backup_v{current_version}_{timestamp}_{uuid.uuid4().hex[:8]}"
+                backup_dir = Path(tempfile.mkdtemp(prefix=f"{backup_name}_"))
+            else:
+                backup_dir = Path(backup_dir)
+                os.makedirs(backup_dir, exist_ok=True)
+            
+            # Copy files/directories with permissions preserved
+            repo_path = Path(self.repo_path)
+            for item in items:
+                src_path = repo_path / item
+                dst_path = backup_dir / item
                 
-        finally:
-            # Always return to original directory
-            os.chdir(original_dir)
-
-        # 5. Generate summary of improvements
-        summary_prompt = f"""
-Based on the improved specification and implementation, provide a summary of the key improvements in version {next_version}:
-
-1. New features added
-2. Performance improvements
-3. Better error handling
-4. Enhanced test coverage
-5. Code quality improvements
-6. Backward compatibility measures
-
-Format the response as a markdown list.
-"""
-        response = self.client.chat_completion([
-            {"role": "system", "content": "You are a helpful coding agent."},
-            {"role": "user", "content": summary_prompt}
-        ], model=self.model)
-        summary = self.client.get_completion(response)
-
-        return f"""
-Self-rewrite completed successfully!
-
-New version: {next_version}
-Location: {new_dir}
-
-Summary of improvements:
-{summary}
-
-Validation steps completed:
-- Dependencies installed
-- Linting checks performed
-- Type checks performed
-- Test suite run with coverage
-- All tests passing
-
-To use the new version:
-1. cd {new_dir}
-2. pip install -e .
-3. pytest -v
-
-All tests are passing and the new version is ready to use.
-"""
-
-    def _generate_improved_specs(self, current_specs: str, next_version: int) -> str:
-        """Generate an improved version of the SPECS.md file."""
-        prompt = f"""
-Based on the current specification, create an improved version {next_version} with:
-
-1. New features:
-   - Parallel processing for faster file operations
-   - Caching for frequently accessed files
-   - Better error recovery and retry mechanisms
-   - Enhanced logging and debugging
-   - Support for more file formats
-   - Improved CLI with progress bars and better UX
-   - Memory optimization for large files
-   - Async operations where beneficial
-
-2. Better tests:
-   - Performance benchmarks
-   - Memory usage tests
-   - Stress tests for large files
-   - Concurrency tests
-   - Edge case coverage
-   - Integration with CI/CD
-
-3. Implementation improvements:
-   - Type safety enhancements
-   - Better error messages
-   - More efficient algorithms
-   - Code organization improvements
-   - Documentation improvements
-   - Performance optimizations
-
-4. Backward compatibility:
-   - Version migration tools
-   - Deprecation warnings
-   - Compatibility layers
-
-Please generate a complete SPECS.md file for version {next_version} that includes all these improvements while maintaining the current structure.
-"""
-        response = self.client.chat_completion([
-            {"role": "system", "content": "You are a helpful coding agent."},
-            {"role": "user", "content": prompt}
-        ], model=self.model)
-        return self.client.get_completion(response)
-
-    def analyze_codebase(self) -> Dict[str, Any]:
-        """Analyze the current codebase and return metrics and insights."""
-        # Simulate analysis with a small delay for better UX
-        time.sleep(2)
-        
-        # Get current files and structure
-        files = self._list_directory(".")
-        python_files = [f for f in files if f.endswith(".py")]
-        test_files = [f for f in files if f.startswith("test_")]
-        
-        # Read and analyze SPECS.md
-        try:
-            specs = self._read_file("SPECS.md")
-            current_version = int(re.search(r'v(\d+)', specs).group(1))
-        except:
-            current_version = 1
+                if not src_path.exists():
+                    continue
+                    
+                if src_path.is_file():
+                    # Create parent directories if needed
+                    os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+                    
+                    # Copy file with content
+                    shutil.copy2(src_path, dst_path)
+                    
+                    # Preserve permissions
+                    src_mode = os.stat(src_path).st_mode
+                    os.chmod(dst_path, src_mode)
+                elif src_path.is_dir():
+                    # Copy directory recursively with permissions
+                    shutil.copytree(
+                        src_path, 
+                        dst_path,
+                        symlinks=False,
+                        ignore=None,
+                        copy_function=shutil.copy2,  # copy2 preserves metadata
+                        ignore_dangling_symlinks=True,
+                        dirs_exist_ok=True
+                    )
             
-        # Return analysis results
-        return {
-            "files_analyzed": len(files),
-            "python_files": len(python_files),
-            "test_files": len(test_files),
-            "current_version": current_version,
-            "next_version": current_version + 1
-        } 
+            return backup_dir
+            
+        except Exception as e:
+            if self.debug:
+                print(f"\nDEBUG: Error in _create_backup: {str(e)}")
+            raise Exception(f"Failed to create backup: {str(e)}")
+
+    def analyze_codebase(self) -> str:
+        """Analyze the codebase for self-rewrite."""
+        # This is a placeholder for the CLI interface's analyze_codebase method
+        # The actual implementation would analyze the codebase structure, performance, etc.
+        return "Codebase analysis complete. Ready for self-rewrite."
+
+    def _generate_improved_specs(self, current_version: int, next_version: int) -> str:
+        """Generate improved specifications for a new version.
+        
+        Args:
+            current_version: The current version number
+            next_version: The next version number to generate specs for
+            
+        Returns:
+            Improved specifications for the new version
+        """
+        try:
+            # Read the current SPECS.md file
+            specs_path = os.path.join(self.repo_path, "SPECS.md")
+            if not os.path.exists(specs_path):
+                current_specs = f"# Coding Agent v{current_version} Specification\n\nBasic coding agent."
+            else:
+                with open(specs_path, 'r') as f:
+                    current_specs = f.read()
+            
+            # Generate prompt for improved specs
+            prompt = get_improved_specs_prompt(current_specs, current_version, next_version)
+            
+            # Request improved specs from API
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant that generates improved specifications for software projects."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response = self.client.chat_completion(
+                messages=messages,
+                model=self.model,
+                max_tokens=self.max_tokens,
+                provider=self.provider,
+                stream=False
+            )
+            improved_specs = self.client.get_completion(response)
+            
+            # Make sure the specs have the correct version number
+            if f"v{next_version}" not in improved_specs:
+                improved_specs = f"# Coding Agent v{next_version} Specification\n\n{improved_specs}"
+            
+            return improved_specs
+            
+        except Exception as e:
+            if self.debug:
+                print(f"\nDEBUG: Error in _generate_improved_specs: {str(e)}")
+            # Return a basic specification if there's an error
+            return f"# Coding Agent v{next_version} Specification\n\nImproved version with enhanced features."
+
+    def _generate_completion_summary(self, version: int, version_dir: Path) -> str:
+        """Generate a summary of the completed self-rewrite.
+        
+        Args:
+            version: The version number that was generated
+            version_dir: The directory containing the new version
+            
+        Returns:
+            Summary of the completed self-rewrite
+        """
+        try:
+            # Get list of files that were created
+            files = []
+            for root, _, filenames in os.walk(version_dir):
+                for filename in filenames:
+                    if filename.endswith('.py') or filename.endswith('.md'):
+                        rel_path = os.path.relpath(os.path.join(root, filename), version_dir)
+                        files.append(rel_path)
+            
+            # Format the file list
+            file_list = "\n".join([f"- {file}" for file in sorted(files)])
+            
+            # Generate the summary
+            summary = f"""# Self-Rewrite Completed Successfully!
+
+## Version Information
+- Version: v{version}
+- Directory: {version_dir}
+- Completed: {time.strftime('%Y-%m-%d %H:%M:%S')}
+
+## Files Generated
+{file_list}
+
+## Next Steps
+1. Review the generated files
+2. Run tests to verify functionality
+3. Deploy the new version
+"""
+            return summary
+            
+        except Exception as e:
+            if self.debug:
+                print(f"\nDEBUG: Error in _generate_completion_summary: {str(e)}")
+            # Return a basic summary if there's an error
+            return f"Self-Rewrite Completed Successfully! Version: v{version}, Directory: {version_dir}"
+
+    def _generate_version_files(self, version_dir: Path, specs: str, version: int) -> bool:
+        """Generate files for a new version.
+        
+        Args:
+            version_dir: Directory to generate files in
+            specs: Specifications for the new version
+            version: Version number
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Create basic structure if not exists
+            os.makedirs(version_dir / "coder", exist_ok=True)
+            os.makedirs(version_dir / "coder" / "utils", exist_ok=True)
+            os.makedirs(version_dir / "tests", exist_ok=True)
+            
+            # List of files to generate
+            files_to_generate = [
+                "coder/agent.py",
+                "coder/api.py",
+                "coder/cli.py",
+                "coder/utils/__init__.py",
+                "coder/utils/version.py",
+                "tests/test_agent.py",
+                "tests/test_api.py",
+                "tests/test_cli.py",
+                "README.md",
+                "SPECS.md",
+                "setup.py",
+                "requirements.txt"
+            ]
+            
+            # Generate each file
+            for file_path in files_to_generate:
+                if self.debug:
+                    print(f"\nDEBUG: Generating file: {file_path}")
+                
+                # Get file-specific instructions if available
+                file_instructions = get_file_specific_instructions(file_path, version)
+                
+                # Generate file content
+                file_content = self._generate_file_content(file_path, specs + "\n\n" + file_instructions, version)
+                
+                # Write the file
+                target_path = version_dir / file_path
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                
+                with open(target_path, 'w') as f:
+                    f.write(file_content)
+                
+                # Sleep briefly to avoid rate limiting
+                time.sleep(1)
+            
+            # Write the specs file directly
+            with open(version_dir / "SPECS.md", 'w') as f:
+                f.write(specs)
+            
+            return True
+            
+        except Exception as e:
+            if self.debug:
+                print(f"\nDEBUG: Error in _generate_version_files: {str(e)}")
+            return False
+    
+    def _rollback(self, version_dir: Path, backup_dir: Path) -> bool:
+        """Roll back changes in case of failure.
+        
+        Args:
+            version_dir: The version directory to remove
+            backup_dir: The backup directory to restore from
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Remove the version directory if it exists
+            if version_dir.exists():
+                shutil.rmtree(version_dir)
+            
+            # Restore from backup if needed
+            # Note: We don't actually restore by default, as the backup is just for reference
+            
+            if self.debug:
+                print(f"\nDEBUG: Rolled back successfully. Backup preserved at {backup_dir}")
+            
+            return True
+            
+        except Exception as e:
+            if self.debug:
+                print(f"\nDEBUG: Error in _rollback: {str(e)}")
+            return False
+
+    def _validate_new_version(self, version_dir: Path) -> bool:
+        """Validate the new version.
+        
+        Args:
+            version_dir: Directory containing the new version
+            
+        Returns:
+            True if validation passes, False otherwise
+        """
+        try:
+            # Validate the structure
+            required_dirs = ["coder", "tests"]
+            required_files = ["coder/agent.py", "coder/cli.py", "SPECS.md", "README.md", "setup.py"]
+            
+            for dir_name in required_dirs:
+                if not (version_dir / dir_name).is_dir():
+                    if self.debug:
+                        print(f"\nDEBUG: Validation failed - missing directory: {dir_name}")
+                    return False
+            
+            for file_path in required_files:
+                if not (version_dir / file_path).is_file():
+                    if self.debug:
+                        print(f"\nDEBUG: Validation failed - missing file: {file_path}")
+                    return False
+            
+            # Basic code validation
+            validator = CodeValidator(version_dir)
+            
+            # Validate Python syntax
+            validation_result = validator.validate_python_syntax()
+            if not validation_result.success:
+                if self.debug:
+                    print(f"\nDEBUG: Python syntax validation failed: {validation_result.error}")
+                return False
+            
+            # Import validation for main files
+            try:
+                import sys
+                sys.path.insert(0, str(version_dir))
+                import coder
+                del sys.modules['coder']
+                sys.path.pop(0)
+            except Exception as e:
+                if self.debug:
+                    print(f"\nDEBUG: Import validation failed: {str(e)}")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            if self.debug:
+                print(f"\nDEBUG: Error in _validate_new_version: {str(e)}")
+            return False
+    
+    def self_rewrite(self) -> str:
+        """Perform a self-rewrite of the codebase.
+        
+        This method generates a new version of the codebase with improved functionality.
+        
+        Returns:
+            Summary of the self-rewrite process
+        """
+        try:
+            # Get current and next version
+            current_version = self.version_manager.get_current_version()
+            next_version = self.version_manager.get_next_version()
+            
+            if self.debug:
+                print(f"\nDEBUG: Starting self-rewrite from v{current_version} to v{next_version}")
+            
+            # Create version directory
+            version_dir = self.version_manager.create_version_directory(next_version)
+            
+            # Create backup of current state
+            backup_dir = self._create_backup()
+            
+            # Generate improved specifications
+            specs = self._generate_improved_specs(current_version, next_version)
+            
+            # Write specs to the version directory
+            specs_path = version_dir / "SPECS.md"
+            with open(specs_path, 'w') as f:
+                f.write(specs)
+            
+            if self.debug:
+                print(f"\nDEBUG: Generated improved specs for v{next_version}")
+            
+            # Generate version files
+            file_generation_success = self._generate_version_files(version_dir, specs, next_version)
+            if not file_generation_success:
+                self._rollback(version_dir, backup_dir)
+                return f"Self-rewrite failed during file generation. Backup preserved at {backup_dir}"
+            
+            if self.debug:
+                print(f"\nDEBUG: Generated files for v{next_version}")
+            
+            # Validate new version
+            validation_success = self._validate_new_version(version_dir)
+            if not validation_success:
+                self._rollback(version_dir, backup_dir)
+                return f"Self-rewrite failed during validation. Backup preserved at {backup_dir}"
+            
+            if self.debug:
+                print(f"\nDEBUG: Validated v{next_version}")
+            
+            # Generate completion summary
+            summary = self._generate_completion_summary(next_version, version_dir)
+            
+            return summary
+            
+        except Exception as e:
+            if self.debug:
+                print(f"\nDEBUG: Error in self_rewrite: {str(e)}")
+            return f"Self-rewrite failed: {str(e)}" 

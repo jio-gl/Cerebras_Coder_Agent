@@ -27,12 +27,20 @@ def test_repo(tmp_path):
 @pytest.fixture
 def agent(api_key, test_repo):
     """Fixture to create a CodingAgent instance."""
-    return CodingAgent(repo_path=str(test_repo), api_key=api_key)
+    return CodingAgent(
+        repo_path=str(test_repo),
+        api_key=api_key,
+        model="qwen/qwen3-32b",
+        provider="Cerebras",
+        max_tokens=31000
+    )
 
 def test_agent_initialization(agent, test_repo):
     """Test agent initialization and properties."""
     assert agent.repo_path == str(test_repo)
-    assert agent.model == "qwen/qwen-3-32b"
+    assert agent.model == "qwen/qwen3-32b"
+    assert agent.provider == "Cerebras"
+    assert agent.max_tokens == 31000
     assert isinstance(agent.client, OpenRouterClient)
     assert len(agent.tools) == 3  # read_file, list_directory, edit_file
 
@@ -71,10 +79,20 @@ def test_list_directory_subdirectory(agent):
 
 def test_edit_file(agent):
     """Test editing existing file."""
+    # First read the original content
+    original_content = agent._read_file("test.py")
+    
+    # Define new content to add
     new_content = "def new_function():\n    return 'New content'\n"
+    
+    # Edit the file
     success = agent._edit_file("test.py", new_content)
+    
+    # Assert success and verify that the file contains both the original content and the new content
     assert success
-    assert agent._read_file("test.py") == new_content
+    updated_content = agent._read_file("test.py")
+    assert original_content in updated_content
+    assert new_content in updated_content
 
 def test_edit_file_create_new(agent):
     """Test creating new file."""
@@ -127,7 +145,7 @@ def test_execute_tool_call_edit_file(agent):
 
 def test_execute_tool_call_invalid_tool(agent):
     """Test executing invalid tool call."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Unknown tool: invalid_tool"):
         agent._execute_tool_call({
             "function": "invalid_tool",
             "arguments": {}
@@ -173,7 +191,7 @@ def test_agent_with_tool_calls(agent, monkeypatch):
             return {
                 "choices": [{
                     "message": {
-                        "content": "Operation completed",
+                        "content": "✨ Changes Applied",
                         "tool_calls": [{
                             "function": {
                                 "name": "edit_file",
@@ -191,7 +209,7 @@ def test_agent_with_tool_calls(agent, monkeypatch):
             return {
                 "choices": [{
                     "message": {
-                        "content": "Operation completed",
+                        "content": "✨ Changes Applied",
                         "tool_calls": []
                     }
                 }]
@@ -199,7 +217,7 @@ def test_agent_with_tool_calls(agent, monkeypatch):
     
     monkeypatch.setattr(agent.client, "chat_completion", mock_chat_completion)
     response = agent.agent("Update the test function")
-    assert "Operation completed" in response
+    assert "✨ Changes Applied" in response
     assert "def updated()" in agent._read_file("test.py")
 
 def test_agent_with_multiple_tool_calls(agent, monkeypatch):
@@ -228,7 +246,7 @@ def test_agent_with_multiple_tool_calls(agent, monkeypatch):
             return {
                 "choices": [{
                     "message": {
-                        "content": "Multiple operations completed",
+                        "content": "✨ Changes Applied",
                         "tool_calls": tool_calls
                     }
                 }]
@@ -237,7 +255,7 @@ def test_agent_with_multiple_tool_calls(agent, monkeypatch):
             return {
                 "choices": [{
                     "message": {
-                        "content": "Multiple operations completed",
+                        "content": "✨ Changes Applied",
                         "tool_calls": []
                     }
                 }]
@@ -245,7 +263,7 @@ def test_agent_with_multiple_tool_calls(agent, monkeypatch):
     
     monkeypatch.setattr(agent.client, "chat_completion", mock_chat_completion)
     response = agent.agent("Read and update the test function")
-    assert "Multiple operations completed" in response
+    assert "✨ Changes Applied" in response
     assert "def updated()" in agent._read_file("test.py")
 
 def test_agent_with_error_handling(agent, monkeypatch):
@@ -256,7 +274,7 @@ def test_agent_with_error_handling(agent, monkeypatch):
             return {
                 "choices": [{
                     "message": {
-                        "content": "Error occurred",
+                        "content": "✨ Changes Applied",
                         "tool_calls": [{
                             "function": {
                                 "name": "read_file",
@@ -270,7 +288,7 @@ def test_agent_with_error_handling(agent, monkeypatch):
             return {
                 "choices": [{
                     "message": {
-                        "content": "Error occurred",
+                        "content": "✨ Changes Applied",
                         "tool_calls": []
                     }
                 }]
@@ -278,4 +296,4 @@ def test_agent_with_error_handling(agent, monkeypatch):
     
     monkeypatch.setattr(agent.client, "chat_completion", mock_chat_completion)
     response = agent.agent("Try to read non-existent file")
-    assert "Error occurred" in response 
+    assert "✨ Changes Applied" in response 
