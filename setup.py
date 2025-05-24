@@ -4,8 +4,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="agent-v2",
-    version="2.0.0",
+    name="coder",
+    version="1.0.0",
     author="Jose Ignacio",
     author_email="joseignacio@example.com",
     description="A powerful coding agent with enhanced features for parallel processing, caching, and more",
@@ -43,7 +43,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "agent=agent.cli:main_cli",
+            "coder=coder.cli:cli",
         ],
     },
 ) 
