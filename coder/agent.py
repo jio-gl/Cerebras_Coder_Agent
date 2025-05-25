@@ -437,12 +437,14 @@ class CodingAgent:
 
     def agent(self, prompt: str, model: Optional[str] = None) -> str:
         """Execute agent operations based on the prompt."""
-        prompt_with_no_think = f"{prompt} /no_think"
+        # Add /auto_confirm to the prompt to instruct the model to avoid asking for confirmation
+        prompt_with_no_think = f"{prompt} /no_think /auto_confirm"
         messages = [
-            {"role": "system", "content": "You are a coding agent that can read, analyze, and modify code. Use the available tools to help with the task."},
+            {"role": "system", "content": "You are a coding agent that can read, analyze, and modify code. Use the available tools to help with the task. DO NOT ask for confirmation before making changes - always proceed immediately with implementation. You can create or modify multiple files in a single request by calling the edit_file tool multiple times."},
             {"role": "user", "content": prompt_with_no_think}
         ]
         actions_taken = []
+        files_created_or_modified = []
         model_to_use = model or self.model
         try:
             response = self.client.chat_completion(
@@ -456,7 +458,43 @@ class CodingAgent:
             tool_calls = self.client.get_tool_calls(response)
             if not tool_calls:
                 completion = self.client.get_completion(response)
-                return f"No actions were taken. Response: {completion}"
+                # If the response is asking for confirmation, automatically answer "yes" and try again
+                if any(phrase in completion.lower() for phrase in [
+                    "would you like me to", 
+                    "shall i proceed", 
+                    "do you want me to",
+                    "should i create",
+                    "should i implement",
+                    "would you like to proceed"
+                ]):
+                    # Log that we're auto-confirming
+                    if self.debug:
+                        print("\nDEBUG: Detected confirmation prompt, automatically answering 'Yes'")
+                    
+                    # Make a new request with confirmation
+                    messages.append({"role": "assistant", "content": completion})
+                    messages.append({"role": "user", "content": "Yes, please proceed immediately with implementation without asking for further confirmation."})
+                    
+                    response = self.client.chat_completion(
+                        messages=messages,
+                        model=self.model,
+                        tools=self.tools,
+                        max_tokens=self.max_tokens,
+                        provider=self.provider,
+                        stream=True
+                    )
+                    
+                    # Try to get tool calls from the new response
+                    tool_calls = self.client.get_tool_calls(response)
+                    if not tool_calls:
+                        completion = self.client.get_completion(response)
+                        return f"No actions were taken after auto-confirmation. Response: {completion}"
+                else:
+                    return f"No actions were taken. Response: {completion}"
+            
+            # First collect and execute all tool calls
+            tool_results = []
+            
             for tool_call in tool_calls:
                 try:
                     tool_name = tool_call.get("function", {}).get("name", "unknown")
@@ -470,29 +508,118 @@ class CodingAgent:
                         print("Arguments:", tool_call.get("function", {}).get("arguments", ""))
                     
                     result = self._execute_tool_call(tool_call)
-                    messages.append({
+                    
+                    # Track file operations
+                    if tool_name == "edit_file":
+                        try:
+                            args = json.loads(tool_call.get("function", {}).get("arguments", "{}"))
+                            target_file = args.get("target_file", "unknown")
+                            files_created_or_modified.append(target_file)
+                        except:
+                            pass
+                    
+                    # Save the tool result to include in the next API call
+                    tool_results.append({
                         "role": "tool",
                         "tool_call_id": tool_call.get("id", "mock_id"),
                         "content": result
                     })
-                    response = self.client.chat_completion(
-                        messages=messages,
-                        model=self.model,
-                        tools=self.tools,
-                        max_tokens=self.max_tokens,
-                        provider=self.provider,
-                        stream=True
-                    )
                 except Exception as e:
                     error_msg = str(e)
                     actions_taken.append(f"Error: {error_msg}")
-                    messages.append({
+                    tool_results.append({
                         "role": "tool",
                         "tool_call_id": tool_call.get("id", "mock_id"),
                         "content": error_msg
                     })
+            
+            # Add all tool results to messages
+            messages.extend(tool_results)
+            
+            # Make a follow-up API call with all tool results included
+            response = self.client.chat_completion(
+                messages=messages,
+                model=self.model,
+                tools=self.tools,
+                max_tokens=self.max_tokens,
+                provider=self.provider,
+                stream=True
+            )
+            
+            # Process any additional tool calls recursively (up to max 5 iterations to prevent infinite loops)
+            max_iterations = 5
+            current_iteration = 1
+            
+            while current_iteration < max_iterations:
+                additional_tool_calls = self.client.get_tool_calls(response)
+                
+                if not additional_tool_calls:
+                    break
+                
+                additional_tool_results = []
+                
+                for tool_call in additional_tool_calls:
+                    try:
+                        tool_name = tool_call.get("function", {}).get("name", "unknown")
+                        action = f"Using tool: {tool_name}"
+                        actions_taken.append(action)
+                        
+                        # Debug: Print tool call details
+                        if self.debug:
+                            print(f"\nDEBUG: Additional tool call {current_iteration}:")
+                            print(f"Tool: {tool_name}")
+                            print("Arguments:", tool_call.get("function", {}).get("arguments", ""))
+                        
+                        result = self._execute_tool_call(tool_call)
+                        
+                        # Track file operations
+                        if tool_name == "edit_file":
+                            try:
+                                args = json.loads(tool_call.get("function", {}).get("arguments", "{}"))
+                                target_file = args.get("target_file", "unknown")
+                                files_created_or_modified.append(target_file)
+                            except:
+                                pass
+                        
+                        additional_tool_results.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.get("id", "mock_id"),
+                            "content": result
+                        })
+                    except Exception as e:
+                        error_msg = str(e)
+                        actions_taken.append(f"Error: {error_msg}")
+                        additional_tool_results.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.get("id", "mock_id"),
+                            "content": error_msg
+                        })
+                
+                # Add additional tool results to messages
+                messages.extend(additional_tool_results)
+                
+                # Make another follow-up API call
+                response = self.client.chat_completion(
+                    messages=messages,
+                    model=self.model,
+                    tools=self.tools,
+                    max_tokens=self.max_tokens,
+                    provider=self.provider,
+                    stream=True
+                )
+                
+                current_iteration += 1
+            
             completion = self.client.get_completion(response)
+            
             if actions_taken:
+                # Return a summary of changes if files were created or modified
+                if files_created_or_modified:
+                    if len(files_created_or_modified) == 1:
+                        return f"✨ Created/modified file: {files_created_or_modified[0]}"
+                    else:
+                        file_list = "\n- ".join(files_created_or_modified)
+                        return f"✨ Created/modified {len(files_created_or_modified)} files:\n- {file_list}"
                 return "✨ Changes Applied"
             else:
                 return completion

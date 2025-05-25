@@ -10,6 +10,8 @@ from rich.text import Text
 from rich.live import Live
 from rich.table import Table
 from .agent import CodingAgent
+import subprocess
+import re
 
 app = typer.Typer(help="🤖 Coder Agent - A local agent for code development using Cerebras API and OpenRouter.")
 console = Console()
@@ -95,7 +97,7 @@ def ask(
 
 @app.command()
 def agent(
-    prompt: str = typer.Argument(..., help="The prompt for the agent to perform changes"),
+    prompt: str = typer.Argument(..., help="The prompt for the agent to perform changes or run commands (e.g., 'create a calculator' or 'run app.py')"),
     repo: Optional[str] = typer.Option(None, "--repo", "-r", help="Path to the repository to analyze (default: current directory)"),
     model: str = typer.Option("qwen/qwen3-32b", help="Model to use (default: qwen/qwen3-32b)"),
     provider: str = typer.Option("Cerebras", help="Provider to use (default: Cerebras)"),
@@ -104,8 +106,124 @@ def agent(
     debug: bool = typer.Option(False, help="Enable debug output"),
     interactive: bool = typer.Option(False, help="Ask y/n for everything change (default: auto-accept all!)")
 ):
-    """Prompt the agent to perform changes in the repository."""
+    """Prompt the agent to perform changes or run commands.
+    
+    If the prompt starts with 'run', 'execute', 'python', or other command keywords,
+    the agent will execute the command locally instead of using the LLM API.
+    
+    The agent can create or modify multiple files in a single operation, making it ideal
+    for creating complete projects (with multiple source files, tests, and configuration files)
+    or making coordinated changes across multiple files.
+    """
     try:
+        # Check if this is a local command execution
+        run_command_patterns = [
+            r'^run\s+(.+)',
+            r'^execute\s+(.+)',
+            r'^start\s+(.+)',
+            r'^launch\s+(.+)',
+            r'^python\s+(.+)',
+            r'^python3\s+(.+)',
+            r'^node\s+(.+)',
+            r'^npm\s+(.+)',
+            r'^yarn\s+(.+)',
+            r'^pip\s+(.+)',
+            r'^pip3\s+(.+)',
+            r'^ruby\s+(.+)',
+            r'^go\s+(.+)',
+            r'^java\s+(.+)',
+            r'^javac\s+(.+)',
+            r'^make\s+(.+)',
+            r'^gcc\s+(.+)',
+            r'^g\+\+\s+(.+)',
+            r'^mvn\s+(.+)',
+            r'^gradle\s+(.+)',
+            r'^docker\s+(.+)',
+            r'^kubectl\s+(.+)',
+            r'^terraform\s+(.+)',
+            r'^ansible\s+(.+)',
+            r'^bash\s+(.+)',
+            r'^sh\s+(.+)',
+            r'^zsh\s+(.+)',
+            # Catch all pattern for any executable that might be in PATH
+            r'^[a-zA-Z0-9_\.-]+\.(py|js|sh|rb|pl|php)\s*(.*)$'
+        ]
+        
+        is_local_command = False
+        command = None
+        
+        for pattern in run_command_patterns:
+            match = re.match(pattern, prompt.strip(), re.IGNORECASE)
+            if match:
+                is_local_command = True
+                command = match.group(1).strip() if len(match.groups()) > 0 else prompt.strip()
+                break
+        
+        if is_local_command:
+            # For local commands, we don't need the API key
+            repo_path = repo or os.getcwd()
+            
+            # Create a live display for command execution
+            with Live(console=console, refresh_per_second=4) as live:
+                # Show the command being executed
+                live.update(Panel.fit(
+                    f"[bold blue]🚀 Executing command:[/bold blue] {command}",
+                    title="🔄 Running Command",
+                    border_style="blue"
+                ))
+                
+                try:
+                    # Execute the command locally using subprocess
+                    result = subprocess.run(
+                        command,
+                        shell=True,
+                        cwd=repo_path,
+                        capture_output=True,
+                        text=True,
+                        timeout=300  # 5 minute timeout
+                    )
+                    
+                    stdout = result.stdout.strip()
+                    stderr = result.stderr.strip()
+                    
+                    if result.returncode == 0:
+                        # Command succeeded
+                        if not stdout and not stderr:
+                            live.update(Panel.fit(
+                                f"[bold green]✅ Command executed successfully:[/bold green] {command}",
+                                title="✅ Command Completed",
+                                border_style="green"
+                            ))
+                        else:
+                            output = stdout if stdout else stderr
+                            live.update(Panel.fit(
+                                f"[bold green]✅ Command output:[/bold green]\n\n{output}",
+                                title="✅ Command Completed",
+                                border_style="green"
+                            ))
+                    else:
+                        # Command failed
+                        live.update(Panel.fit(
+                            f"[bold red]❌ Command failed with error code {result.returncode}:[/bold red]\n\n{stderr}",
+                            title="❌ Command Failed",
+                            border_style="red"
+                        ))
+                except subprocess.TimeoutExpired:
+                    live.update(Panel.fit(
+                        f"[bold red]❌ Command timed out after 5 minutes:[/bold red] {command}",
+                        title="❌ Command Failed",
+                        border_style="red"
+                    ))
+                except Exception as e:
+                    live.update(Panel.fit(
+                        f"[bold red]❌ Error executing command:[/bold red] {str(e)}",
+                        title="❌ Command Failed",
+                        border_style="red"
+                    ))
+            
+            return
+        
+        # If not a local command, proceed with the normal agent flow
         coding_agent = initialize_agent(repo, model, provider, max_tokens, debug, interactive)
         
         # Create a live display for agent operations
@@ -121,11 +239,24 @@ def agent(
             response = coding_agent.agent(prompt + (" /no_think" if no_think else ""))
             
             # Show the formatted response
-            live.update(Panel.fit(
-                Markdown(response),
-                title="✨ Changes Applied",
-                border_style="green"
-            ))
+            if "Created/modified" in response and "files:" in response:
+                # Multi-file response
+                files_created = response.split("files:\n- ")[1].split("\n- ")
+                
+                table = Table.grid(padding=1)
+                table.add_row(Text("✨ Created/modified files:", style="bold green"))
+                
+                for file in files_created:
+                    table.add_row(Text(f"  ✓ {file.strip()}", style="green"))
+                
+                live.update(Panel(table, title="✨ Multiple Files Created/Modified", border_style="green"))
+            else:
+                # Regular response
+                live.update(Panel.fit(
+                    Markdown(response),
+                    title="✨ Changes Applied",
+                    border_style="green"
+                ))
     except Exception as e:
         console.print(Panel.fit(
             f"[bold red]❌ Error:[/bold red] {str(e)}\n\n"

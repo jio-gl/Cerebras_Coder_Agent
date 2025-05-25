@@ -42,17 +42,17 @@ def get_agent_tools() -> List[Dict]:
             "type": "function",
             "function": {
                 "name": "edit_file",
-                "description": "Edit or create a file",
+                "description": "Edit or create a file. You can call this function multiple times to create or modify multiple files for the same project (e.g., create server.js, package.json, README.md, and test files in a single response). You should aim to create all necessary files for a complete project.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "target_file": {
                             "type": "string",
-                            "description": "Path to the file to edit"
+                            "description": "Path to the file to edit or create"
                         },
                         "instructions": {
                             "type": "string",
-                            "description": "Instructions for the edit"
+                            "description": "Instructions for the edit or file creation"
                         },
                         "code_edit": {
                             "type": "string",

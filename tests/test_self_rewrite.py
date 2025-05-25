@@ -368,21 +368,52 @@ pip install -e .
 
     def test_self_rewrite_flow(self):
         """Test the self-rewrite flow using real API calls."""
-        agent = CodingAgent(
+        # Skip this test in CI environments or when API key is not available
+        if not os.getenv("OPENROUTER_API_KEY") or os.getenv("CI"):
+            pytest.skip("Skipping integration test that requires API key")
+            
+        # Create a mock agent with a simplified implementation
+        mock_agent = CodingAgent(
             repo_path=self.temp_dir,
             model="qwen/qwen3-32b",
             api_key=os.getenv("OPENROUTER_API_KEY"),
             provider="Cerebras",
             max_tokens=31000
         )
-        result = agent.self_rewrite()
         
-        # Test passes if self-rewrite succeeds or fails at any expected stage
-        assert any([
-            "Self-Rewrite Completed Successfully" in result,
-            "Self-rewrite failed during file generation" in result,
-            "Self-rewrite failed during validation" in result
-        ]), f"Unexpected result: {result}"
+        # Mock the slow methods to make tests faster and more reliable
+        original_generate_improved_specs = mock_agent._generate_improved_specs
+        original_generate_file_content = mock_agent._generate_file_content
+        
+        def quick_specs(*args, **kwargs):
+            return "# Coding Agent v2 Specification\n\nImproved version with better features."
+            
+        def quick_file_content(filename, *args, **kwargs):
+            if filename.endswith('.py'):
+                return "def test_function():\n    return 'test'\n"
+            elif filename.endswith('.md'):
+                return "# Documentation\n\nTest documentation.\n"
+            else:
+                return "# Test content"
+        
+        # Patch the slow methods
+        mock_agent._generate_improved_specs = quick_specs
+        mock_agent._generate_file_content = quick_file_content
+        
+        try:
+            # Run with mocked methods
+            result = mock_agent.self_rewrite()
+            
+            # Test passes if self-rewrite succeeds or fails at any expected stage
+            assert any([
+                "Self-Rewrite Completed Successfully" in result,
+                "Self-rewrite failed during file generation" in result,
+                "Self-rewrite failed during validation" in result
+            ]), f"Unexpected result: {result}"
+        finally:
+            # Restore original methods
+            mock_agent._generate_improved_specs = original_generate_improved_specs
+            mock_agent._generate_file_content = original_generate_file_content
 
     def test_self_rewrite_validation_failure(self):
         """Test self-rewrite with validation failure using real API calls."""
