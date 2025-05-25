@@ -173,47 +173,208 @@ def agent(
                 ))
                 
                 try:
-                    # Execute the command locally using subprocess
-                    result = subprocess.run(
+                    # Create a process object for the command with pipes for stdout and stderr
+                    process = subprocess.Popen(
                         command,
                         shell=True,
                         cwd=repo_path,
-                        capture_output=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
                         text=True,
-                        timeout=300  # 5 minute timeout
+                        bufsize=1  # Line buffered
                     )
                     
-                    stdout = result.stdout.strip()
-                    stderr = result.stderr.strip()
+                    # Initialize output collectors
+                    all_stdout = []
+                    all_stderr = []
                     
-                    if result.returncode == 0:
-                        # Command succeeded
-                        if not stdout and not stderr:
-                            live.update(Panel.fit(
-                                f"[bold green]✅ Command executed successfully:[/bold green] {command}",
-                                title="✅ Command Completed",
-                                border_style="green"
-                            ))
+                    # Create a panel with initial content
+                    output_panel = Panel.fit(
+                        "[bold blue]Command output:[/bold blue]\n\n",
+                        title="🔄 Command Running",
+                        border_style="blue"
+                    )
+                    live.update(output_panel)
+                    
+                    # Function to read from a pipe and update the display
+                    def read_stream(stream, is_stderr=False):
+                        collector = all_stderr if is_stderr else all_stdout
+                        for line in iter(stream.readline, ''):
+                            if not line:
+                                break
+                            collector.append(line)
+                            
+                            # Update the live display with all collected output
+                            combined_output = ""
+                            if all_stdout:
+                                combined_output += "".join(all_stdout)
+                            if all_stderr:
+                                if combined_output:
+                                    combined_output += "\n"
+                                combined_output += "[bold red]Error output:[/bold red]\n" + "".join(all_stderr)
+                            
+                            output_panel = Panel.fit(
+                                f"[bold blue]Command output:[/bold blue]\n\n{combined_output}",
+                                title="🔄 Command Running",
+                                border_style="blue"
+                            )
+                            live.update(output_panel)
+                    
+                    # Start reader threads for stdout and stderr
+                    import threading
+                    stdout_thread = threading.Thread(target=read_stream, args=(process.stdout,))
+                    stderr_thread = threading.Thread(target=read_stream, args=(process.stderr, True))
+                    
+                    stdout_thread.daemon = True
+                    stderr_thread.daemon = True
+                    
+                    stdout_thread.start()
+                    stderr_thread.start()
+                    
+                    # Wait for process to complete with timeout
+                    try:
+                        process.wait(timeout=300)  # 5 minute timeout
+                        
+                        # Make sure threads are done reading
+                        stdout_thread.join(timeout=1)
+                        stderr_thread.join(timeout=1)
+                        
+                        # Get any remaining output
+                        remaining_stdout, remaining_stderr = process.communicate()
+                        if remaining_stdout:
+                            all_stdout.append(remaining_stdout)
+                        if remaining_stderr:
+                            all_stderr.append(remaining_stderr)
+                        
+                        # Determine final output based on return code
+                        stdout_text = "".join(all_stdout).strip()
+                        stderr_text = "".join(all_stderr).strip()
+                        
+                        if process.returncode == 0:
+                            # Command succeeded
+                            if not stdout_text and not stderr_text:
+                                live.update(Panel.fit(
+                                    f"[bold green]✅ Command executed successfully:[/bold green] {command}",
+                                    title="✅ Command Completed",
+                                    border_style="green"
+                                ))
+                            else:
+                                output = stdout_text if stdout_text else stderr_text
+                                live.update(Panel.fit(
+                                    f"[bold green]✅ Command output:[/bold green]\n\n{output}",
+                                    title="✅ Command Completed",
+                                    border_style="green"
+                                ))
                         else:
-                            output = stdout if stdout else stderr
-                            live.update(Panel.fit(
-                                f"[bold green]✅ Command output:[/bold green]\n\n{output}",
-                                title="✅ Command Completed",
-                                border_style="green"
-                            ))
-                    else:
-                        # Command failed
+                            # Command failed
+                            combined_output = stdout_text
+                            if stderr_text:
+                                if combined_output:
+                                    combined_output += "\n\n"
+                                combined_output += f"[bold red]Error:[/bold red]\n{stderr_text}"
+                                
+                            error_panel = Panel.fit(
+                                f"[bold red]❌ Command failed with error code {process.returncode}:[/bold red]\n\n{combined_output}",
+                                title="❌ Command Failed",
+                                border_style="red"
+                            )
+                            live.update(error_panel)
+                            
+                            # Check if the user requested to fix errors
+                            if any(fix_term in prompt.lower() for fix_term in ["fix", "repair", "solve", "debug", "resolve"]):
+                                live.update(Panel.fit(
+                                    f"[bold yellow]🔍 Analyzing error and suggesting fixes...[/bold yellow]",
+                                    title="🔄 Analyzing Error",
+                                    border_style="yellow"
+                                ))
+                                
+                                # Initialize the agent to analyze the error
+                                try:
+                                    coding_agent = initialize_agent(repo, model, provider, max_tokens, debug, interactive)
+                                    
+                                    # Prepare a prompt for the agent to analyze the error
+                                    error_prompt = f"""
+                                    Analyze this command error and suggest specific fixes:
+                                    
+                                    Command: {command}
+                                    
+                                    Error output:
+                                    {stderr_text}
+                                    
+                                    Standard output:
+                                    {stdout_text}
+                                    
+                                    Working directory: {repo_path}
+                                    
+                                    Provide specific fixes I can apply to solve this problem. Be concise and focus on the exact changes needed.
+                                    """
+                                    
+                                    # Get the agent's analysis
+                                    analysis = coding_agent.ask(error_prompt)
+                                    
+                                    # Update the display with the analysis
+                                    analysis_panel = Panel.fit(
+                                        f"[bold red]❌ Command failed with error code {process.returncode}:[/bold red]\n\n{combined_output}\n\n"
+                                        f"[bold green]🔧 Suggested fixes:[/bold green]\n\n{analysis}",
+                                        title="🔧 Error Analysis",
+                                        border_style="yellow"
+                                    )
+                                    live.update(analysis_panel)
+                                    
+                                    # Ask the user if they want to apply the suggested fixes
+                                    if interactive:
+                                        console.print("\n[bold yellow]Would you like to apply these fixes? (y/n)[/bold yellow]")
+                                        response = input().strip().lower()
+                                        if response == 'y':
+                                            # Apply fixes based on the analysis
+                                            fix_prompt = f"Fix the following error by modifying the necessary files. Be specific and focus only on fixing this error:\n\n{error_prompt}"
+                                            
+                                            live.update(Panel.fit(
+                                                f"[bold blue]🔧 Applying fixes...[/bold blue]",
+                                                title="🔄 Applying Fixes",
+                                                border_style="blue"
+                                            ))
+                                            
+                                            fix_response = coding_agent.agent(fix_prompt)
+                                            
+                                            live.update(Panel.fit(
+                                                f"[bold green]✅ Fix applied:[/bold green]\n\n{fix_response}",
+                                                title="✅ Fixes Applied",
+                                                border_style="green"
+                                            ))
+                                    else:
+                                        # In non-interactive mode, automatically apply the fixes
+                                        fix_prompt = f"Fix the following error by modifying the necessary files. Be specific and focus only on fixing this error:\n\n{error_prompt}"
+                                        
+                                        live.update(Panel.fit(
+                                            f"[bold blue]🔧 Automatically applying fixes...[/bold blue]",
+                                            title="🔄 Applying Fixes",
+                                            border_style="blue"
+                                        ))
+                                        
+                                        fix_response = coding_agent.agent(fix_prompt)
+                                        
+                                        live.update(Panel.fit(
+                                            f"[bold green]✅ Fix applied:[/bold green]\n\n{fix_response}",
+                                            title="✅ Fixes Applied",
+                                            border_style="green"
+                                        ))
+                                except Exception as analysis_error:
+                                    live.update(Panel.fit(
+                                        f"[bold red]❌ Command failed with error code {process.returncode}:[/bold red]\n\n{combined_output}\n\n"
+                                        f"[bold red]Failed to analyze error:[/bold red] {str(analysis_error)}",
+                                        title="❌ Error Analysis Failed",
+                                        border_style="red"
+                                    ))
+                    except subprocess.TimeoutExpired:
+                        # Kill the process if it times out
+                        process.kill()
+                        process.communicate()  # Clean up
                         live.update(Panel.fit(
-                            f"[bold red]❌ Command failed with error code {result.returncode}:[/bold red]\n\n{stderr}",
+                            f"[bold red]❌ Command timed out after 5 minutes:[/bold red] {command}",
                             title="❌ Command Failed",
                             border_style="red"
                         ))
-                except subprocess.TimeoutExpired:
-                    live.update(Panel.fit(
-                        f"[bold red]❌ Command timed out after 5 minutes:[/bold red] {command}",
-                        title="❌ Command Failed",
-                        border_style="red"
-                    ))
                 except Exception as e:
                     live.update(Panel.fit(
                         f"[bold red]❌ Error executing command:[/bold red] {str(e)}",

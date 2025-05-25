@@ -446,6 +446,10 @@ class CodingAgent:
         actions_taken = []
         files_created_or_modified = []
         model_to_use = model or self.model
+
+        # Extract explicitly mentioned files from the prompt
+        explicitly_mentioned_files = self._extract_mentioned_files(prompt)
+        
         try:
             response = self.client.chat_completion(
                 messages=messages,
@@ -610,6 +614,76 @@ class CodingAgent:
                 
                 current_iteration += 1
             
+            # Check if any explicitly mentioned files were not created
+            missing_files = [file for file in explicitly_mentioned_files if file not in files_created_or_modified]
+            
+            # If there are missing files, create them with another API call
+            if missing_files:
+                if self.debug:
+                    print(f"\nDEBUG: Detected missing files: {missing_files}")
+                
+                # Generate content for missing files
+                missing_files_prompt = f"Please create the following files that were mentioned in the original request but not created: {', '.join(missing_files)}. The original request was: {prompt}"
+                
+                missing_files_messages = [
+                    {"role": "system", "content": "You are a coding agent that creates files based on context. Create appropriate content for the requested files based on the project context and related files already created."},
+                    {"role": "user", "content": missing_files_prompt}
+                ]
+                
+                # Add file contents for context
+                for file in files_created_or_modified:
+                    try:
+                        file_content = self._read_file(file)
+                        missing_files_messages.append({
+                            "role": "user", 
+                            "content": f"Here's the content of {file} for context:\n\n{file_content}"
+                        })
+                    except:
+                        pass
+                
+                # Get content for missing files
+                for missing_file in missing_files:
+                    try:
+                        # Generate prompt for missing file
+                        file_prompt = f"Based on the project context and other files, create appropriate content for {missing_file}. Create a complete, well-formatted file."
+                        
+                        missing_files_messages.append({
+                            "role": "user",
+                            "content": file_prompt
+                        })
+                        
+                        # Get content from API
+                        missing_file_response = self.client.chat_completion(
+                            messages=missing_files_messages,
+                            model=self.model,
+                            max_tokens=self.max_tokens,
+                            provider=self.provider,
+                            stream=False
+                        )
+                        
+                        missing_file_content = self.client.get_completion(missing_file_response)
+                        
+                        # Extract content between code blocks if present
+                        import re
+                        code_pattern = r"```(?:json|javascript)?(.+?)```"
+                        code_blocks = re.findall(code_pattern, missing_file_content, re.DOTALL)
+                        
+                        if code_blocks:
+                            clean_content = code_blocks[0].strip()
+                        else:
+                            clean_content = missing_file_content.strip()
+                        
+                        # Create the missing file
+                        self._edit_file(missing_file, clean_content)
+                        files_created_or_modified.append(missing_file)
+                        
+                        if self.debug:
+                            print(f"\nDEBUG: Created missing file: {missing_file}")
+                    
+                    except Exception as e:
+                        if self.debug:
+                            print(f"\nDEBUG: Error creating missing file {missing_file}: {str(e)}")
+            
             completion = self.client.get_completion(response)
             
             if actions_taken:
@@ -628,6 +702,38 @@ class CodingAgent:
             if "provider" in error_msg.lower():
                 return f"Error: The model '{self.model}' is not compatible with the {self.provider} provider. Please use a different model or provider."
             return f"Error: {error_msg}"
+            
+    def _extract_mentioned_files(self, prompt: str) -> List[str]:
+        """Extract explicitly mentioned files from the prompt."""
+        import re
+        
+        # Define patterns for common file types and mentions
+        patterns = [
+            r'(?:create|include|implement|build|generate|make)\s+(?:a|an)?\s*["\']?([a-zA-Z0-9_\-\.]+\.[a-zA-Z0-9]+)["\']?',
+            r'(?:file|module|script|config)?\s*["\']?([a-zA-Z0-9_\-\.]+\.[a-zA-Z0-9]+)["\']?',
+            r'([a-zA-Z0-9_\-\.]+\.(?:js|py|json|md|txt|html|css|ts|jsx|tsx))',
+            r'(?:named|called)\s+["\']?([a-zA-Z0-9_\-\.]+\.[a-zA-Z0-9]+)["\']?'
+        ]
+        
+        # Find all matches
+        matches = []
+        for pattern in patterns:
+            matches.extend(re.findall(pattern, prompt, re.IGNORECASE))
+        
+        # Filter for unique, valid filenames
+        filtered_matches = []
+        for match in matches:
+            # Skip if not a valid filename
+            if not re.match(r'^[a-zA-Z0-9_\-\.]+\.[a-zA-Z0-9]+$', match):
+                continue
+            # Skip if looks like a version number
+            if re.match(r'^v?\d+\.\d+\.\d+$', match):
+                continue
+            # Add if not already in list
+            if match not in filtered_matches:
+                filtered_matches.append(match)
+        
+        return filtered_matches
 
     def _generate_file_content(self, filename: str, specs: str, version: int) -> str:
         """Generate file content based on specifications.

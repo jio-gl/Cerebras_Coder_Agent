@@ -311,4 +311,96 @@ def test_agent_with_error_handling(agent, monkeypatch):
         "✨ Changes Applied" in response,
         "Error" in response,
         "nonexistent.py" in response
-    ]) 
+    ])
+
+def test_extract_mentioned_files(agent):
+    """Test extracting mentioned files from prompts."""
+    # Test with explicit file mentions
+    prompt1 = "Create a Node.js project with server.js and package.json files"
+    files1 = agent._extract_mentioned_files(prompt1)
+    assert "server.js" in files1
+    assert "package.json" in files1
+    
+    # Test with file extensions
+    prompt2 = "Build a web app with index.html, styles.css, and app.js"
+    files2 = agent._extract_mentioned_files(prompt2)
+    assert "index.html" in files2
+    assert "styles.css" in files2
+    assert "app.js" in files2
+    
+    # Test with complex description
+    prompt3 = "Build a NodeJS web service that calculates financial options prices using the Black-Scholes model. Include server.js, package.json, an options.js module, and a test file."
+    files3 = agent._extract_mentioned_files(prompt3)
+    assert "server.js" in files3
+    assert "package.json" in files3
+    assert "options.js" in files3
+
+def test_agent_handles_missing_files(agent, monkeypatch):
+    """Test that agent handles explicitly mentioned files that weren't created."""
+    # Define a series of tool calls that create some files but not all
+    def mock_chat_completion(*args, **kwargs):
+        messages = kwargs.get('messages', [])
+        
+        # Initial response - creating only server.js
+        if len(messages) == 2:
+            return {
+                "choices": [{
+                    "message": {
+                        "content": "Creating server.js",
+                        "tool_calls": [{
+                            "id": "call1",
+                            "function": {
+                                "name": "edit_file",
+                                "arguments": json.dumps({
+                                    "target_file": "server.js",
+                                    "instructions": "Create server.js",
+                                    "code_edit": "console.log('Server');"
+                                })
+                            }
+                        }]
+                    }
+                }]
+            }
+        # Second response - the follow-up with no tool calls
+        elif any(msg.get('tool_call_id') == 'call1' for msg in messages if msg.get('role') == 'tool'):
+            return {
+                "choices": [{
+                    "message": {
+                        "content": "Server file created",
+                        "tool_calls": []
+                    }
+                }]
+            }
+        # Third response - generating content for package.json
+        elif any("Please create the following files" in msg.get('content', '') for msg in messages if msg.get('role') == 'user'):
+            return {
+                "choices": [{
+                    "message": {
+                        "content": '```json\n{\n  "name": "financial-options",\n  "version": "1.0.0",\n  "main": "server.js"\n}\n```'
+                    }
+                }]
+            }
+    
+    # Mock the file operations
+    def mock_edit_file(path, content):
+        return True
+    
+    def mock_read_file(path):
+        if path == "server.js":
+            return "console.log('Server');"
+        return "Mock file content"
+    
+    # Apply mocks
+    monkeypatch.setattr(agent.client, "chat_completion", mock_chat_completion)
+    monkeypatch.setattr(agent.client, "get_tool_calls", lambda x: [{"id": "call1", "function": {"name": "edit_file", "arguments": '{"target_file": "server.js", "instructions": "Create server", "code_edit": "console.log(\'Server\');"}'}}] if "content" in x["choices"][0]["message"] and "Server file created" not in x["choices"][0]["message"]["content"] else [])
+    monkeypatch.setattr(agent.client, "get_completion", lambda x: x["choices"][0]["message"].get("content", ""))
+    monkeypatch.setattr(agent, "_edit_file", mock_edit_file)
+    monkeypatch.setattr(agent, "_read_file", mock_read_file)
+    
+    # Run the agent with a prompt mentioning multiple files
+    prompt = "Create a Node.js project with server.js and package.json"
+    response = agent.agent(prompt)
+    
+    # Verify that both files are mentioned in the response
+    assert "server.js" in response
+    assert "package.json" in response 
