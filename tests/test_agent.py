@@ -41,6 +41,7 @@ def agent(api_key, test_repo):
     )
 
 
+@pytest.mark.integration
 def test_agent_initialization(agent, test_repo):
     """Test agent initialization and properties."""
     assert agent.repo_path == str(test_repo)
@@ -51,6 +52,7 @@ def test_agent_initialization(agent, test_repo):
     assert len(agent.tools) == 3  # read_file, list_directory, edit_file
 
 
+@pytest.mark.integration
 def test_read_file(agent):
     """Test reading file contents."""
     content = agent._read_file("test.py")
@@ -58,12 +60,14 @@ def test_read_file(agent):
     assert "return 'Hello, World!'" in content
 
 
+@pytest.mark.integration
 def test_read_file_nonexistent(agent):
     """Test reading non-existent file."""
     with pytest.raises(Exception):
         agent._read_file("nonexistent.py")
 
 
+@pytest.mark.integration
 def test_read_file_in_subdirectory(agent):
     """Test reading file in subdirectory."""
     content = agent._read_file("subdir/test2.py")
@@ -71,6 +75,7 @@ def test_read_file_in_subdirectory(agent):
     assert "return 'Goodbye!'" in content
 
 
+@pytest.mark.integration
 def test_list_directory(agent):
     """Test listing directory contents."""
     contents = agent._list_directory(".")
@@ -78,18 +83,21 @@ def test_list_directory(agent):
     assert "subdir" in contents
 
 
+@pytest.mark.integration
 def test_list_directory_nonexistent(agent):
     """Test listing non-existent directory."""
     with pytest.raises(Exception):
         agent._list_directory("nonexistent")
 
 
+@pytest.mark.integration
 def test_list_directory_subdirectory(agent):
     """Test listing subdirectory contents."""
     contents = agent._list_directory("subdir")
     assert "test2.py" in contents
 
 
+@pytest.mark.integration
 def test_edit_file(agent):
     """Test editing existing file."""
     # First read the original content
@@ -108,6 +116,7 @@ def test_edit_file(agent):
     assert new_content in updated_content
 
 
+@pytest.mark.integration
 def test_edit_file_create_new(agent):
     """Test creating new file."""
     new_content = "def new_file():\n    return 'New file'\n"
@@ -116,6 +125,7 @@ def test_edit_file_create_new(agent):
     assert agent._read_file("new_file.py") == new_content
 
 
+@pytest.mark.integration
 def test_edit_file_create_in_subdirectory(agent):
     """Test creating file in subdirectory."""
     new_content = "def subdir_file():\n    return 'In subdirectory'\n"
@@ -124,12 +134,14 @@ def test_edit_file_create_in_subdirectory(agent):
     assert agent._read_file("subdir/new_file.py") == new_content
 
 
+@pytest.mark.integration
 def test_edit_file_invalid_path(agent):
     """Test editing file with invalid path."""
     with pytest.raises(Exception):
         agent._edit_file("/invalid/path/file.py", "content")
 
 
+@pytest.mark.integration
 def test_execute_tool_call_read_file(agent):
     """Test executing read_file tool call."""
     result = agent._execute_tool_call(
@@ -138,6 +150,7 @@ def test_execute_tool_call_read_file(agent):
     assert "def hello()" in result
 
 
+@pytest.mark.integration
 def test_execute_tool_call_list_directory(agent):
     """Test executing list_directory tool call."""
     result = agent._execute_tool_call(
@@ -147,6 +160,7 @@ def test_execute_tool_call_list_directory(agent):
     assert "subdir" in result
 
 
+@pytest.mark.integration
 def test_execute_tool_call_edit_file(agent):
     """Test executing edit_file tool call."""
     result = agent._execute_tool_call(
@@ -163,12 +177,14 @@ def test_execute_tool_call_edit_file(agent):
     assert "def updated()" in agent._read_file("test.py")
 
 
+@pytest.mark.integration
 def test_execute_tool_call_invalid_tool(agent):
     """Test executing invalid tool call."""
     with pytest.raises(ValueError, match="Unknown tool: invalid_tool"):
         agent._execute_tool_call({"function": "invalid_tool", "arguments": {}})
 
 
+@pytest.mark.integration
 def test_ask_with_tool_calls(agent, monkeypatch):
     """Test ask method with tool calls."""
 
@@ -206,6 +222,7 @@ def test_ask_with_tool_calls(agent, monkeypatch):
     assert "I found the answer" in response
 
 
+@pytest.mark.integration
 def test_agent_with_tool_calls(agent, monkeypatch):
     """Test agent method with tool calls."""
 
@@ -255,6 +272,7 @@ def test_agent_with_tool_calls(agent, monkeypatch):
     assert "def updated()" in agent._read_file("test.py")
 
 
+@pytest.mark.integration
 def test_agent_with_multiple_tool_calls(agent, monkeypatch):
     """Test agent method with multiple tool calls."""
     tool_calls = [
@@ -311,6 +329,7 @@ def test_agent_with_multiple_tool_calls(agent, monkeypatch):
     assert "def updated()" in agent._read_file("test.py")
 
 
+@pytest.mark.integration
 def test_agent_with_error_handling(agent, monkeypatch):
     """Test agent method with error handling."""
 
@@ -355,6 +374,7 @@ def test_agent_with_error_handling(agent, monkeypatch):
     )
 
 
+@pytest.mark.integration
 def test_extract_mentioned_files(agent):
     """Test extracting mentioned files from prompts."""
     # Test with explicit file mentions
@@ -378,6 +398,7 @@ def test_extract_mentioned_files(agent):
     assert "options.js" in files3
 
 
+@pytest.mark.integration
 def test_agent_handles_missing_files(agent, monkeypatch):
     """Test that agent handles explicitly mentioned files that weren't created."""
 

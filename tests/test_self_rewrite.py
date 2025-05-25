@@ -16,6 +16,7 @@ from coder.utils import CodeValidator, VersionManager
 load_dotenv()
 
 
+@pytest.mark.integration
 class TestSelfRewrite:
     """Test class for self-rewrite functionality."""
 
@@ -29,9 +30,7 @@ class TestSelfRewrite:
         (self.temp_dir / "coder" / "__init__.py").write_text("")
         (self.temp_dir / "tests").mkdir()
         (self.temp_dir / "tests" / "__init__.py").write_text("")
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        if not api_key:
-            pytest.skip("OPENROUTER_API_KEY environment variable not set")
+        api_key = os.getenv("OPENROUTER_API_KEY", "test-key")
         self.agent = CodingAgent(
             repo_path=str(self.temp_dir),
             model="qwen/qwen3-32b",

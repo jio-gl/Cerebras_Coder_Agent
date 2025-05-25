@@ -39,8 +39,9 @@ def agent(test_workspace, api_key):
     return CodingAgent(repo_path=str(test_workspace), api_key=api_key)
 
 
+@pytest.mark.integration
 class TestFileOperations:
-    """Test suite for file operation tools."""
+    """Test file operations."""
 
     def test_read_file_basic(self, agent):
         """Test basic file reading functionality."""
@@ -80,8 +81,9 @@ class TestFileOperations:
         assert agent._read_file("src/nested/deep/file.txt") == content
 
 
+@pytest.mark.integration
 class TestDirectoryOperations:
-    """Test suite for directory operation tools."""
+    """Test directory operations."""
 
     def test_list_directory_root(self, agent):
         """Test listing root directory contents."""
@@ -102,8 +104,9 @@ class TestDirectoryOperations:
             agent._list_directory("nonexistent")
 
 
+@pytest.mark.integration
 class TestToolCallExecution:
-    """Test suite for tool call execution."""
+    """Test tool call execution."""
 
     def test_execute_read_file_tool(self, agent):
         """Test executing read_file tool call."""
@@ -154,8 +157,9 @@ class TestToolCallExecution:
             agent._execute_tool_call(tool_call)
 
 
+@pytest.mark.integration
 class TestToolInteraction:
-    """Test suite for tool interaction scenarios."""
+    """Test tool interactions."""
 
     def test_read_then_edit(self, agent):
         """Test reading a file and then editing it."""

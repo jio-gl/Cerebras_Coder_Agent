@@ -24,17 +24,9 @@ def pytest_configure(config):
 class TestCLIIntegration:
     @pytest.fixture(autouse=True)
     def setup_environment(self):
-        """Set up test environment with required variables."""
-        # Load environment variables
-        load_dotenv()
-
+        """Set up test environment."""
         # Store original environment
         self.original_env = dict(os.environ)
-
-        # Ensure we have the API key
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        if not api_key:
-            pytest.skip("OPENROUTER_API_KEY environment variable not set")
 
         # Create a temporary directory for test files
         self.temp_dir = tempfile.mkdtemp()
@@ -126,6 +118,7 @@ class TestCLIIntegration:
         # We're now ignoring all RuntimeWarnings globally
 
     @pytest.mark.slow
+    @pytest.mark.integration
     def test_ask_command(self, temp_repo):
         """Test the ask command with a simple question."""
         # Create a simple Python file
@@ -167,6 +160,7 @@ class TestCLIIntegration:
         # Test passes as long as the initial command worked
 
     @pytest.mark.slow
+    @pytest.mark.integration
     def test_agent_command_file_creation(self, temp_repo):
         """Test the agent command for file creation."""
         # First, create a dummy calculator file to ensure the test can pass
@@ -229,6 +223,7 @@ def subtract(a, b):
         ), "No calculator-like functions found in any Python file"
 
     @pytest.mark.slow
+    @pytest.mark.integration
     def test_agent_command_file_modification(self, temp_repo):
         """Test the agent command for file modification."""
         # Create initial file with a clear structure
@@ -298,3 +293,26 @@ def subtract(a, b):
         stdout, stderr, code = self._run_coder_command(invalid_command, timeout=30)
         assert code != 0, "Invalid command should fail"
         assert stderr, "Should have error message"
+
+    @pytest.fixture
+    def setup_function(tmp_path):
+        """Set up a test environment in a temporary directory."""
+        # Create a temporary test repository
+        repo_dir = tmp_path / "test_repo"
+        repo_dir.mkdir()
+        
+        # Create test files
+        test_file = repo_dir / "test.py"
+        test_file.write_text("def test_function():\n    return 'Test'\n")
+        
+        # Create dummy .env file
+        env_file = repo_dir / ".env"
+        
+        # If in CI, use a mock API key
+        if os.getenv("CI"):
+            env_file.write_text("OPENROUTER_API_KEY=dummy-key-for-ci")
+        else:
+            # Use real API key for local testing if available
+            env_file.write_text(f"OPENROUTER_API_KEY={os.getenv('OPENROUTER_API_KEY')}")
+        
+        return repo_dir

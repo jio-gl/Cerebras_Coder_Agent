@@ -17,6 +17,7 @@ def api_key():
 
 
 @pytest.mark.parametrize("model", SUPPORTED_MODELS)
+@pytest.mark.integration
 def test_basic_completion(model, tmp_path, api_key):
     """Test basic completion with each model."""
     agent = CodingAgent(
@@ -30,6 +31,7 @@ def test_basic_completion(model, tmp_path, api_key):
 
 
 @pytest.mark.parametrize("model", SUPPORTED_MODELS)
+@pytest.mark.integration
 def test_structured_data(model, tmp_path, api_key):
     """Test structured data generation with each model."""
     agent = CodingAgent(
@@ -73,6 +75,7 @@ def test_structured_data(model, tmp_path, api_key):
 
 
 @pytest.mark.parametrize("model", SUPPORTED_MODELS)
+@pytest.mark.integration
 def test_tool_calls(model, tmp_path, api_key):
     """Test tool calls with each model."""
     agent = CodingAgent(
@@ -96,6 +99,7 @@ def test_tool_calls(model, tmp_path, api_key):
 
 
 @pytest.mark.parametrize("model", SUPPORTED_MODELS)
+@pytest.mark.integration
 def test_error_handling(model, tmp_path, api_key):
     """Test error handling with each model."""
     agent = CodingAgent(
@@ -111,6 +115,7 @@ def test_error_handling(model, tmp_path, api_key):
     )
 
 
+@pytest.mark.integration
 def test_qwen_large_context(tmp_path, api_key):
     """Test Qwen model with large context window."""
     model = "qwen/qwen3-32b"

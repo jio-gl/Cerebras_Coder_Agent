@@ -37,6 +37,7 @@ def agent_node(example_node_repo):
     return CodingAgent(repo_path=str(example_node_repo))
 
 
+@pytest.mark.integration
 def test_agent_fixes_typo_in_node_repo(agent_node, example_node_repo):
     """Test that the agent can fix a typo in index.js ("wrld" -> "world")."""
     # Simulate a prompt to fix the typo
@@ -56,6 +57,7 @@ def test_agent_fixes_typo_in_node_repo(agent_node, example_node_repo):
 
 
 @pytest.mark.skipif(shutil.which("npm") is None, reason="npm not installed")
+@pytest.mark.integration
 def test_agent_runs_npm_install_and_start(agent_node, example_node_repo):
     """Test that the agent can run npm install and npm start in the repo."""
     # Write a minimal package.json and index.js (already done in fixture)
@@ -75,6 +77,7 @@ def test_agent_runs_npm_install_and_start(agent_node, example_node_repo):
     )
 
 
+@pytest.mark.integration
 def test_agent_generates_and_runs_command(agent_node, example_node_repo):
     """Test that the agent can generate and run a shell command based on a prompt."""
     # Simulate a prompt to run a command
