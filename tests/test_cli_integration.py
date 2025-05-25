@@ -300,19 +300,19 @@ def subtract(a, b):
         # Create a temporary test repository
         repo_dir = tmp_path / "test_repo"
         repo_dir.mkdir()
-        
+
         # Create test files
         test_file = repo_dir / "test.py"
         test_file.write_text("def test_function():\n    return 'Test'\n")
-        
+
         # Create dummy .env file
         env_file = repo_dir / ".env"
-        
+
         # If in CI, use a mock API key
         if os.getenv("CI"):
             env_file.write_text("OPENROUTER_API_KEY=dummy-key-for-ci")
         else:
             # Use real API key for local testing if available
             env_file.write_text(f"OPENROUTER_API_KEY={os.getenv('OPENROUTER_API_KEY')}")
-        
+
         return repo_dir
