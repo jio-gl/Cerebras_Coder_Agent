@@ -1,5 +1,7 @@
 """Tool definitions for the CodingAgent."""
-from typing import List, Dict
+
+from typing import Dict, List
+
 
 def get_agent_tools() -> List[Dict]:
     """Return the list of tools available to the agent."""
@@ -14,12 +16,12 @@ def get_agent_tools() -> List[Dict]:
                     "properties": {
                         "target_file": {
                             "type": "string",
-                            "description": "Path to the file to read"
+                            "description": "Path to the file to read",
                         }
                     },
-                    "required": ["target_file"]
-                }
-            }
+                    "required": ["target_file"],
+                },
+            },
         },
         {
             "type": "function",
@@ -31,12 +33,12 @@ def get_agent_tools() -> List[Dict]:
                     "properties": {
                         "relative_workspace_path": {
                             "type": "string",
-                            "description": "Path to the directory to list"
+                            "description": "Path to the directory to list",
                         }
                     },
-                    "required": ["relative_workspace_path"]
-                }
-            }
+                    "required": ["relative_workspace_path"],
+                },
+            },
         },
         {
             "type": "function",
@@ -48,19 +50,19 @@ def get_agent_tools() -> List[Dict]:
                     "properties": {
                         "target_file": {
                             "type": "string",
-                            "description": "Path to the file to edit or create"
+                            "description": "Path to the file to edit or create",
                         },
                         "instructions": {
                             "type": "string",
-                            "description": "Instructions for the edit or file creation"
+                            "description": "Instructions for the edit or file creation",
                         },
                         "code_edit": {
                             "type": "string",
-                            "description": "New content for the file"
-                        }
+                            "description": "New content for the file",
+                        },
                     },
-                    "required": ["target_file", "instructions", "code_edit"]
-                }
-            }
-        }
-    ] 
+                    "required": ["target_file", "instructions", "code_edit"],
+                },
+            },
+        },
+    ]

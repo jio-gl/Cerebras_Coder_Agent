@@ -2,6 +2,7 @@
 Example module for the coder package.
 """
 
+
 def hello(name: str) -> str:
     """
     Return a greeting message.
@@ -12,4 +13,4 @@ def hello(name: str) -> str:
     Returns:
         A greeting message.
     """
-    return f"Hello, {name}!" 
+    return f"Hello, {name}!"

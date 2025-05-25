@@ -1,13 +1,16 @@
 """Prompt templates for the CodingAgent."""
 
-def get_improved_specs_prompt(current_specs: str, current_version: int, next_version: int) -> str:
+
+def get_improved_specs_prompt(
+    current_specs: str, current_version: int, next_version: int
+) -> str:
     """Generate a prompt for improved specifications.
-    
+
     Args:
         current_specs: Current specifications text
         current_version: Current version number
         next_version: Next version number
-        
+
     Returns:
         Prompt for generating improved specifications
     """
@@ -34,14 +37,15 @@ The output should be in Markdown format with clear sections.
 Start with the title "# Coding Agent v{next_version} Specification"
 """
 
+
 def get_file_generation_prompt(file_path: str, specs: str, version: int) -> str:
     """Generate a prompt for file content generation.
-    
+
     Args:
         file_path: Path to the file to generate
         specs: Specifications for the file
         version: Version number
-        
+
     Returns:
         Prompt for generating file content
     """
@@ -63,18 +67,19 @@ Make sure the code adheres to best practices and is consistent with the version 
 Output only the file content, no explanations.
 """
 
+
 def get_completion_summary_prompt(version: int, files: list) -> str:
     """Generate a prompt for completion summary.
-    
+
     Args:
         version: Version number
         files: List of generated files
-        
+
     Returns:
         Prompt for generating completion summary
     """
     file_list = "\n".join([f"- {file}" for file in files])
-    
+
     return f"""
 Summarize the completion of the self-rewrite process for Coding Agent v{version}.
 
@@ -92,13 +97,14 @@ Create a concise summary of the self-rewrite, highlighting:
 Output in Markdown format, starting with "# Self-Rewrite Completed Successfully!"
 """
 
+
 def get_file_specific_instructions(file_path: str, version: int) -> str:
     """Get file-specific instructions based on the file path.
-    
+
     Args:
         file_path: Path to the file
         version: Version number
-        
+
     Returns:
         File-specific instructions
     """
@@ -160,4 +166,4 @@ For {file_path}:
 - Version: {version}
 """
     else:
-        return f"Generate appropriate content for {file_path} based on the specifications for version {version}." 
+        return f"Generate appropriate content for {file_path} based on the specifications for version {version}."
