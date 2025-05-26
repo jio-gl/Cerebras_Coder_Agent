@@ -13,7 +13,10 @@ class OpenRouterClient:
         self, api_key: str, provider: str = "Cerebras", max_tokens: int = 31000
     ):
         self.api_key = api_key
-        self.provider = provider
+        # Enforce fixed provider
+        if provider != "Cerebras":
+            raise ValueError("Only Cerebras provider is supported")
+        self.provider = "Cerebras"
         self.max_tokens = max_tokens
         if not self.api_key:
             raise ValueError(
@@ -29,7 +32,7 @@ class OpenRouterClient:
     def chat_completion(
         self,
         messages: List[Dict[str, str]],
-        model: str = "meta-llama/llama-3.1-8b-instruct",
+        model: str = "qwen/qwen3-32b",
         temperature: float = 0.7,
         max_tokens: int = None,
         tools: Optional[List[Dict]] = None,
@@ -43,30 +46,37 @@ class OpenRouterClient:
 
         Args:
             messages: List of message dictionaries with role and content
-            model: Model to use (default: meta-llama/llama-3.1-8b-instruct)
+            model: Model to use (default: qwen/qwen3-32b)
             temperature: Sampling temperature (0-1)
             max_tokens: Maximum tokens to generate
             tools: Optional list of tools for function calling
             tool_choice: Optional tool choice strategy
             response_format: Optional response format specification
             stream: Whether to use streaming (required for tools with Cerebras)
-            provider: Optional provider to use
+            provider: Optional provider to use (must be Cerebras)
 
         Returns:
             Dict containing the API response
         """
+        # Enforce fixed model
+        if model != "qwen/qwen3-32b":
+            raise ValueError("Only qwen/qwen3-32b model is supported")
+            
         if max_tokens is None:
             max_tokens = self.max_tokens
-        if provider is None:
-            provider = self.provider
+            
+        # Enforce fixed provider
+        if provider is not None and provider != "Cerebras":
+            raise ValueError("Only Cerebras provider is supported")
+        provider = "Cerebras"
 
         data = {
-            "model": model,
+            "model": "qwen/qwen3-32b",  # Enforce fixed model
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": stream,
-            "provider": {"only": [provider]},
+            "provider": {"only": ["Cerebras"]},  # Enforce fixed provider
         }
 
         if tools:

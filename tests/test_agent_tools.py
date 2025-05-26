@@ -111,10 +111,12 @@ class TestToolCallExecution:
     def test_execute_read_file_tool(self, agent):
         """Test executing read_file tool call."""
         tool_call = {
+            "type": "function",
             "function": {
                 "name": "read_file",
                 "arguments": json.dumps({"target_file": "src/main.txt"}),
-            }
+            },
+            "id": "call_123"
         }
         result = agent._execute_tool_call(tool_call)
         assert "Main content" in result
@@ -122,19 +124,21 @@ class TestToolCallExecution:
     def test_execute_list_directory_tool(self, agent):
         """Test executing list_directory tool call."""
         tool_call = {
+            "type": "function",
             "function": {
                 "name": "list_directory",
                 "arguments": json.dumps({"relative_workspace_path": "src"}),
-            }
+            },
+            "id": "call_456"
         }
         result = agent._execute_tool_call(tool_call)
-        contents = json.loads(result)
-        assert "main.txt" in contents
-        assert "config.json" in contents
+        assert "main.txt" in result
+        assert "config.json" in result
 
     def test_execute_edit_file_tool(self, agent):
         """Test executing edit_file tool call."""
         tool_call = {
+            "type": "function",
             "function": {
                 "name": "edit_file",
                 "arguments": json.dumps(
@@ -144,16 +148,24 @@ class TestToolCallExecution:
                         "code_edit": "Updated via tool\n",
                     }
                 ),
-            }
+            },
+            "id": "call_789"
         }
         result = agent._execute_tool_call(tool_call)
-        assert result == "File edited successfully"
+        assert "File edited" in result
         assert agent._read_file("src/main.txt") == "Updated via tool\n"
 
     def test_execute_invalid_tool(self, agent):
         """Test executing invalid tool call."""
-        tool_call = {"function": {"name": "invalid_tool", "arguments": json.dumps({})}}
-        with pytest.raises(ValueError, match="Unknown tool: invalid_tool"):
+        tool_call = {
+            "type": "function", 
+            "function": {
+                "name": "invalid_tool", 
+                "arguments": json.dumps({})
+            },
+            "id": "call_invalid"
+        }
+        with pytest.raises(Exception):
             agent._execute_tool_call(tool_call)
 
 

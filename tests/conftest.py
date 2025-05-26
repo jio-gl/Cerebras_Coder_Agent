@@ -23,10 +23,16 @@ def pytest_configure(config):
 
 def pytest_collection_modifyitems(config, items):
     """Modify collected test items based on environment conditions."""
-    # Check for API key presence
+    # Check for API key presence - don't skip tests as we have the API key
     api_key_missing = not os.getenv("OPENROUTER_API_KEY")
+    
+    # Print a message about the API key status for debugging
+    if api_key_missing:
+        print("WARNING: OPENROUTER_API_KEY not found in environment.")
+    else:
+        print(f"INFO: OPENROUTER_API_KEY found in environment (length: {len(os.getenv('OPENROUTER_API_KEY'))})")
 
-    # If API key is missing, skip tests that require it
+    # Only skip tests if API key is actually missing
     if api_key_missing:
         skip_marker = pytest.mark.skip(
             reason="OPENROUTER_API_KEY environment variable not set. "
