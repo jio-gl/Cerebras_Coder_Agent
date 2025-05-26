@@ -27,6 +27,9 @@ app = typer.Typer(
 )
 console = Console()
 
+# Create a prompts directory if it doesn't exist
+os.makedirs("prompts", exist_ok=True)
+
 
 def create_status_table(title: str, message: str, status: str = "running") -> Table:
     """Create a status table for live updates."""
@@ -148,6 +151,10 @@ def agent(
         ...,
         help="The prompt for the agent to perform changes or run commands (e.g., 'create a calculator' or 'run app.py')",
     ),
+    from_file: bool = typer.Option(
+        False, "--from-file", "-f", 
+        help="Treat the prompt argument as a file path instead of a literal prompt"
+    ),
     repo: Optional[str] = typer.Option(
         None,
         "--repo",
@@ -179,6 +186,9 @@ def agent(
     The agent can create or modify multiple files in a single operation, making it ideal
     for creating complete projects (with multiple source files, tests, and configuration files)
     or making coordinated changes across multiple files.
+    
+    Example with file input:
+        coder agent --from-file prompts/web_scraper.txt
     """
     try:
         # Enforce fixed model and provider
@@ -186,6 +196,30 @@ def agent(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
+        
+        # Handle prompt from file if requested
+        if from_file:
+            try:
+                with open(prompt, 'r') as f:
+                    file_prompt = f.read().strip()
+                    
+                if not file_prompt:
+                    raise ValueError("The prompt file is empty")
+                    
+                # Show the prompt being loaded
+                console.print(
+                    Panel.fit(
+                        f"[bold blue]📄 Loaded prompt from:[/bold blue] {prompt}",
+                        title="📝 Prompt File",
+                        border_style="blue",
+                    )
+                )
+                # Replace the prompt with the file contents
+                prompt = file_prompt
+            except FileNotFoundError:
+                raise ValueError(f"Prompt file not found: {prompt}")
+            except Exception as e:
+                raise ValueError(f"Error reading prompt file: {str(e)}")
             
         # Check if this is a local command execution
         run_command_patterns = [
@@ -1566,6 +1600,134 @@ def fix_python_syntax(
             Panel.fit(
                 f"[bold red]❌ Error:[/bold red] {str(e)}",
                 title="⚠️ Syntax Fix Failed",
+                border_style="red",
+            )
+        )
+        if debug:
+            console.print_exception()
+        raise typer.Exit(1)
+
+
+@app.command()
+def prompt_from_file(
+    prompt_file: str = typer.Argument(
+        ..., help="Path to a text file containing the prompt"
+    ),
+    repo: Optional[str] = typer.Option(
+        None,
+        "--repo",
+        "-r",
+        help="Path to the repository to analyze (default: current directory)",
+    ),
+    model: str = typer.Option(
+        "qwen/qwen3-32b", help="Model to use (default: qwen/qwen3-32b)"
+    ),
+    provider: str = typer.Option(
+        "Cerebras", help="Provider to use (default: Cerebras)"
+    ),
+    max_tokens: int = typer.Option(
+        31000, help="Maximum tokens to generate (default: 31000)"
+    ),
+    no_think: bool = typer.Option(
+        False, help="Disable thinking mode by appending /no_think to the prompt"
+    ),
+    debug: bool = typer.Option(False, help="Enable debug output"),
+    interactive: bool = typer.Option(
+        False, help="Ask y/n for everything change (default: auto-accept all!)"
+    ),
+):
+    """Execute a prompt from a text file.
+    
+    This command reads a prompt from a text file and passes it to the agent.
+    Useful for complex or multi-line prompts that would be difficult to type
+    on the command line.
+    
+    Example:
+        coder prompt-from-file prompts/web_scraper.txt
+    """
+    try:
+        # Enforce fixed model and provider
+        if model != "qwen/qwen3-32b":
+            raise ValueError("Only qwen/qwen3-32b model is supported")
+        if provider != "Cerebras":
+            raise ValueError("Only Cerebras provider is supported")
+            
+        # Read the prompt from the file
+        try:
+            with open(prompt_file, 'r') as f:
+                prompt = f.read().strip()
+                
+            if not prompt:
+                raise ValueError("The prompt file is empty")
+                
+            # Show the prompt being loaded
+            console.print(
+                Panel.fit(
+                    f"[bold blue]📄 Loaded prompt from:[/bold blue] {prompt_file}",
+                    title="📝 Prompt File",
+                    border_style="blue",
+                )
+            )
+            
+            # Pass the prompt to the agent function
+            coding_agent = initialize_agent(
+                repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            )
+            
+            # Create a live display for agent operation
+            with Live(console=console, refresh_per_second=4) as live:
+                # Show prompt processing status
+                live.update(
+                    create_status_table(
+                        "Processing prompt", "Analyzing and executing actions...", "running"
+                    )
+                )
+                
+                # Execute the agent with the prompt from the file
+                result = coding_agent.agent(prompt + (" /no_think" if no_think else ""))
+                
+                # Show the formatted response
+                if "Created/modified" in result and "files:" in result:
+                    # Multi-file response
+                    files_created = result.split("files:\n- ")[1].split("\n- ")
+
+                    table = Table.grid(padding=1)
+                    table.add_row(Text("✨ Created/modified files:", style="bold green"))
+
+                    for file in files_created:
+                        table.add_row(Text(f"  ✓ {file.strip()}", style="green"))
+
+                    live.update(
+                        Panel(
+                            table,
+                            title="✨ Multiple Files Created/Modified",
+                            border_style="green",
+                        )
+                    )
+                else:
+                    # Regular response
+                    live.update(
+                        Panel.fit(
+                            Markdown(result),
+                            title="✨ Changes Applied",
+                            border_style="green",
+                        )
+                    )
+                
+        except FileNotFoundError:
+            raise ValueError(f"Prompt file not found: {prompt_file}")
+        except Exception as e:
+            raise ValueError(f"Error reading prompt file: {str(e)}")
+            
+    except Exception as e:
+        console.print(
+            Panel.fit(
+                f"[bold red]❌ Error:[/bold red] {str(e)}\n\n"
+                "[yellow]💡 Troubleshooting Tips:[/yellow]\n"
+                "• Check that the prompt file exists and is readable\n"
+                "• Verify the file contains a valid prompt\n"
+                "• Ensure you have internet connectivity",
+                title="⚠️ Error Occurred",
                 border_style="red",
             )
         )
