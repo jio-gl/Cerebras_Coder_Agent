@@ -1,7 +1,8 @@
 """Unit tests for the LLMToolkit class."""
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from coder.utils.llm_tools import LLMToolkit
 

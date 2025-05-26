@@ -1,8 +1,8 @@
 """LLM-based utility tools for Python code and Markdown documentation."""
 
-import re
 import ast
 import json
+import re
 import sys
 from typing import Any, Dict, List, Optional
 
@@ -29,6 +29,7 @@ class LLMToolkit:
         """Ensure an API client is available."""
         if self.api_client is None:
             import os
+
             from dotenv import load_dotenv
 
             load_dotenv()

@@ -1,8 +1,8 @@
 import os
 import re
 import subprocess
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
 import typer
 from rich.console import Console

@@ -1,6 +1,7 @@
 """Test configuration and fixtures."""
 
 import os
+
 import pytest
 from dotenv import load_dotenv
 

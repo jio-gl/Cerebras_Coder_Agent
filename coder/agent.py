@@ -18,7 +18,7 @@ from .prompts import (
     get_improved_specs_prompt,
 )
 from .tools import get_agent_tools
-from .utils import CodeValidator, EquivalenceChecker, VersionManager, LLMToolkit
+from .utils import CodeValidator, EquivalenceChecker, LLMToolkit, VersionManager
 
 # Load environment variables from .env file
 load_dotenv()
