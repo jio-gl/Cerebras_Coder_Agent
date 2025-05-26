@@ -1,0 +1,56 @@
+Create a web scraping utility that extracts product information from e-commerce websites. The utility should follow these detailed requirements:
+
+1. Architecture:
+   - Use a modular architecture with separate components for scraping, data processing, and output
+   - Implement an extensible design that allows adding new scrapers for different sites
+   - Use dependency injection for better testability
+
+2. Performance:
+   - Use asyncio and aiohttp for concurrent requests (max 5-10 concurrent connections)
+   - Implement exponential backoff for retries (max 3 retries per URL)
+   - Add a configurable rate limiter (requests per second, default: 2)
+   - Use connection pooling to reduce overhead
+
+3. Data Extraction:
+   - Parse HTML with BeautifulSoup4 or similar library
+   - Extract product details (name, price, description, rating, images, SKU)
+   - Support both structured data (JSON-LD) and direct HTML parsing
+   - Handle pagination automatically
+
+4. Output Formats:
+   - CSV with proper escaping and UTF-8 encoding
+   - JSON with configurable indentation
+   - Option for SQLite database output
+   - Support for streaming results to reduce memory usage
+
+5. Error Handling:
+   - Implement proper exception handling with custom exceptions
+   - Add retry logic for transient network errors
+   - Graceful degradation when parts of a page can't be parsed
+   - Log detailed error information for debugging
+
+6. CLI Features:
+   - Use argparse or click for the command line interface
+   - Allow target URL specification
+   - Option to set crawl depth and breadth
+   - Configure output formats and locations
+   - Set verbosity levels
+   - Provide dry-run option to test without saving
+
+7. Testing:
+   - Unit tests for all core components
+   - Integration tests with mock HTTP responses
+   - Benchmark tests for performance validation
+   - Test with real-world examples
+
+8. Documentation:
+   - Detailed docstrings in Google or NumPy format
+   - README with installation and usage instructions
+   - Examples for common use cases
+   - API documentation for library usage
+
+9. Extras:
+   - Add proxy support for rotating IPs
+   - Implement user agent rotation
+   - Add support for handling JavaScript-rendered pages via Playwright
+   - Include Dockerfile for containerized deployment 

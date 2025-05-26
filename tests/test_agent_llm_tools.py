@@ -20,7 +20,7 @@ def mock_llm_toolkit():
         "classes": 1,
         "imports": ["os", "sys"],
         "potential_issues": ["Unused import 'sys'"],
-        "suggestions": ["Remove unused imports"]
+        "suggestions": ["Remove unused imports"],
     }
     mock_toolkit.optimize_code.return_value = "optimized code"
     mock_toolkit.generate_docstring.return_value = "code with docstrings"
@@ -37,18 +37,20 @@ def sample_python_file(tmp_path, monkeypatch):
     # Create a temp directory in the repository
     test_dir = Path("tests/temp")
     test_dir.mkdir(exist_ok=True)
-    
+
     # Create a temporary file in the test directory
     temp_file = test_dir / "test_sample.py"
     with open(temp_file, "w") as f:
-        f.write("""
+        f.write(
+            """
 def calculate_average(numbers):
     return sum(numbers) / len(numbers)
-""")
-    
+"""
+        )
+
     # Yield the file path
     yield str(temp_file)
-    
+
     # Clean up after test
     try:
         if temp_file.exists():
@@ -65,13 +67,13 @@ class TestAgentLLMTools:
         # Create agent with mocked toolkit
         agent = CodingAgent(debug=True)
         agent.llm_toolkit = mock_llm_toolkit
-        
+
         # Call the analyze_file method
         result = agent.analyze_file(sample_python_file)
-        
+
         # Verify the toolkit was called correctly
         assert mock_llm_toolkit.analyze_code.called
-        
+
         # Verify the result has the expected fields
         assert "complexity" in result
         assert "functions" in result
@@ -87,20 +89,20 @@ class TestAgentLLMTools:
         # Create agent with mocked toolkit
         agent = CodingAgent(debug=True)
         agent.llm_toolkit = mock_llm_toolkit
-        
+
         # Create a mock for _edit_file to avoid actually modifying the file
-        with patch.object(agent, '_edit_file', return_value=True):
+        with patch.object(agent, "_edit_file", return_value=True):
             # Call the optimize_file method
             result = agent.optimize_file(sample_python_file, "performance")
-            
+
             # Verify the toolkit was called correctly
             mock_llm_toolkit.optimize_code.assert_called_once()
-            
+
             # Verify _edit_file was called with the optimized code
             agent._edit_file.assert_called_once_with(
                 sample_python_file, "optimized code"
             )
-            
+
             # Verify the result
             assert "✨ Optimized" in result
             assert "performance" in result
@@ -110,20 +112,20 @@ class TestAgentLLMTools:
         # Create agent with mocked toolkit
         agent = CodingAgent(debug=True)
         agent.llm_toolkit = mock_llm_toolkit
-        
+
         # Create a mock for _edit_file to avoid actually modifying the file
-        with patch.object(agent, '_edit_file', return_value=True):
+        with patch.object(agent, "_edit_file", return_value=True):
             # Call the add_docstrings method
             result = agent.add_docstrings(sample_python_file)
-            
+
             # Verify the toolkit was called correctly
             mock_llm_toolkit.generate_docstring.assert_called_once()
-            
+
             # Verify _edit_file was called with the documented code
             agent._edit_file.assert_called_once_with(
                 sample_python_file, "code with docstrings"
             )
-            
+
             # Verify the result
             assert "✨ Added/improved docstrings" in result
 
@@ -132,21 +134,19 @@ class TestAgentLLMTools:
         # Create agent with mocked toolkit
         agent = CodingAgent(debug=True)
         agent.llm_toolkit = mock_llm_toolkit
-        
+
         # Create a mock for _edit_file to avoid actually creating a test file
-        with patch.object(agent, '_edit_file', return_value=True):
+        with patch.object(agent, "_edit_file", return_value=True):
             # Call the generate_tests method with explicit output path
             output_path = sample_python_file.replace(".py", "_test.py")
             result = agent.generate_tests(sample_python_file, output_path)
-            
+
             # Verify the toolkit was called correctly
             mock_llm_toolkit.generate_unit_tests.assert_called_once()
-            
+
             # Verify _edit_file was called with the test code
-            agent._edit_file.assert_called_once_with(
-                output_path, "test code"
-            )
-            
+            agent._edit_file.assert_called_once_with(output_path, "test code")
+
             # Verify the result
             assert "✨ Generated tests" in result
 
@@ -155,20 +155,20 @@ class TestAgentLLMTools:
         # Create agent with mocked toolkit
         agent = CodingAgent(debug=True)
         agent.llm_toolkit = mock_llm_toolkit
-        
+
         # Create a mock for _edit_file to avoid actually modifying the file
-        with patch.object(agent, '_edit_file', return_value=True):
+        with patch.object(agent, "_edit_file", return_value=True):
             # Call the enhance_error_handling method
             result = agent.enhance_error_handling(sample_python_file)
-            
+
             # Verify the toolkit was called correctly
             mock_llm_toolkit.enhance_error_handling.assert_called_once()
-            
+
             # Verify _edit_file was called with the enhanced code
             agent._edit_file.assert_called_once_with(
                 sample_python_file, "code with error handling"
             )
-            
+
             # Verify the result
             assert "✨ Enhanced error handling" in result
 
@@ -177,13 +177,13 @@ class TestAgentLLMTools:
         # Create agent with mocked toolkit
         agent = CodingAgent(debug=True)
         agent.llm_toolkit = mock_llm_toolkit
-        
+
         # Call the explain_code method
         result = agent.explain_code(sample_python_file, "detailed")
-        
+
         # Verify the toolkit was called correctly
         mock_llm_toolkit.explain_code.assert_called_once()
-        
+
         # Verify the result
         assert result == "code explanation"
 
@@ -192,20 +192,20 @@ class TestAgentLLMTools:
         # Create agent with mocked toolkit
         agent = CodingAgent(debug=True)
         agent.llm_toolkit = mock_llm_toolkit
-        
+
         # Create a mock for _edit_file to avoid actually modifying the file
-        with patch.object(agent, '_edit_file', return_value=True):
+        with patch.object(agent, "_edit_file", return_value=True):
             # Call the refactor_code method
             result = agent.refactor_code(sample_python_file, "extract method")
-            
+
             # Verify the toolkit was called correctly
             mock_llm_toolkit.refactor_code.assert_called_once()
-            
+
             # Verify _edit_file was called with the refactored code
             agent._edit_file.assert_called_once_with(
                 sample_python_file, "refactored code"
             )
-            
+
             # Verify the result
             assert "✨ Refactored" in result
-            assert "extract method" in result 
+            assert "extract method" in result

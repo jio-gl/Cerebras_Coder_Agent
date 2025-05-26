@@ -115,7 +115,7 @@ def get_agent_tools() -> List[Dict]:
                             "type": "string",
                             "description": "Goal for optimization (performance, readability, memory)",
                             "enum": ["performance", "readability", "memory"],
-                        }
+                        },
                     },
                     "required": ["target_file", "optimization_goal"],
                 },
@@ -153,7 +153,7 @@ def get_agent_tools() -> List[Dict]:
                         "output_file": {
                             "type": "string",
                             "description": "Path to write the test file to (optional, will auto-generate if not provided)",
-                        }
+                        },
                     },
                     "required": ["target_file"],
                 },
@@ -192,7 +192,7 @@ def get_agent_tools() -> List[Dict]:
                             "type": "string",
                             "description": "Level of detail (basic, detailed, advanced)",
                             "enum": ["basic", "detailed", "advanced"],
-                        }
+                        },
                     },
                     "required": ["target_file"],
                 },
@@ -213,7 +213,7 @@ def get_agent_tools() -> List[Dict]:
                         "refactoring_goal": {
                             "type": "string",
                             "description": "Goal for refactoring (e.g., 'extract method', 'apply factory pattern')",
-                        }
+                        },
                     },
                     "required": ["target_file", "refactoring_goal"],
                 },
@@ -234,7 +234,7 @@ def get_agent_tools() -> List[Dict]:
                         "output_file": {
                             "type": "string",
                             "description": "Path to write the Markdown file to (optional, will auto-generate if not provided)",
-                        }
+                        },
                     },
                     "required": ["target_file"],
                 },

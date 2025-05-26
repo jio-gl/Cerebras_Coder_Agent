@@ -11,13 +11,7 @@ def mock_api_client():
     """Create a mock API client for testing."""
     mock_client = Mock()
     mock_client.chat_completion.return_value = {
-        "choices": [
-            {
-                "message": {
-                    "content": "Sample response"
-                }
-            }
-        ]
+        "choices": [{"message": {"content": "Sample response"}}]
     }
     mock_client.get_completion.return_value = "Sample response"
     return mock_client
@@ -31,7 +25,7 @@ def llm_toolkit(mock_api_client):
         model="qwen/qwen3-32b",
         provider="Cerebras",
         max_tokens=1000,
-        debug=True
+        debug=True,
     )
 
 
@@ -45,9 +39,9 @@ class TestLLMToolkit:
             model="qwen/qwen3-32b",
             provider="Cerebras",
             max_tokens=1000,
-            debug=True
+            debug=True,
         )
-        
+
         assert toolkit.api_client == mock_api_client
         assert toolkit.model == "qwen/qwen3-32b"
         assert toolkit.provider == "Cerebras"
@@ -66,7 +60,7 @@ class TestLLMToolkit:
             "suggestions": ["Remove unused imports"]
         }
         """
-        
+
         code = """
         import os
         import sys
@@ -79,9 +73,9 @@ class TestLLMToolkit:
                 self.value += 1
                 return self.value
         """
-        
+
         result = llm_toolkit.analyze_code(code)
-        
+
         assert mock_api_client.chat_completion.called
         assert isinstance(result, dict)
         assert "complexity" in result
@@ -95,7 +89,7 @@ class TestLLMToolkit:
         """Test the _basic_code_analysis method for fallback."""
         # Enable debug mode
         llm_toolkit.debug = True
-        
+
         code = """
         import os
         import sys
@@ -108,14 +102,14 @@ class TestLLMToolkit:
                 self.value += 1
                 return self.value
         """
-        
+
         # Force fallback to basic analysis
         with patch.object(llm_toolkit, "_call_llm", side_effect=Exception("API error")):
             result = llm_toolkit.analyze_code(code)
-            
+
             assert isinstance(result, dict)
             assert result["functions"] == 2  # __init__ and increment
-            assert result["classes"] == 1    # Example
+            assert result["classes"] == 1  # Example
             assert "os" in result["imports"]
             assert "sys" in result["imports"]
 
@@ -129,16 +123,16 @@ class TestLLMToolkit:
             return sum(numbers) / len(numbers)
         ```
         """
-        
+
         code = """
         def calculate_average(numbers):
             return sum(numbers) / len(numbers)
         """
-        
+
         issue = "Function crashes on empty list"
-        
+
         result = llm_toolkit.fix_code_semantics(code, issue)
-        
+
         assert mock_api_client.chat_completion.called
         assert "if not numbers:" in result
         assert "return 0" in result
@@ -154,7 +148,7 @@ class TestLLMToolkit:
             return a
         ```
         """
-        
+
         code = """
         def fibonacci(n):
             if n <= 0:
@@ -164,9 +158,9 @@ class TestLLMToolkit:
             else:
                 return fibonacci(n-1) + fibonacci(n-2)
         """
-        
+
         result = llm_toolkit.optimize_code(code, "performance")
-        
+
         assert mock_api_client.chat_completion.called
         assert "a, b = 0, 1" in result
         assert "for" in result
@@ -190,16 +184,16 @@ class TestLLMToolkit:
             return sum(numbers) / len(numbers)
         ```
         """
-        
+
         code = """
         def calculate_average(numbers):
             if not numbers:
                 return 0
             return sum(numbers) / len(numbers)
         """
-        
+
         result = llm_toolkit.generate_docstring(code)
-        
+
         assert mock_api_client.chat_completion.called
         assert "Calculate the average" in result
         assert "Args:" in result
@@ -218,16 +212,16 @@ class TestLLMToolkit:
             assert calculate_average([]) == 0
         ```
         """
-        
+
         code = """
         def calculate_average(numbers):
             if not numbers:
                 return 0
             return sum(numbers) / len(numbers)
         """
-        
+
         result = llm_toolkit.generate_unit_tests(code)
-        
+
         assert mock_api_client.chat_completion.called
         assert "import pytest" in result
         assert "test_calculate_average_normal" in result
@@ -248,16 +242,16 @@ class TestLLMToolkit:
                 return 0
         ```
         """
-        
+
         code = """
         def calculate_average(numbers):
             if not numbers:
                 return 0
             return sum(numbers) / len(numbers)
         """
-        
+
         result = llm_toolkit.enhance_error_handling(code)
-        
+
         assert mock_api_client.chat_completion.called
         assert "try:" in result
         assert "except TypeError:" in result
@@ -273,11 +267,11 @@ class TestLLMToolkit:
             "test_scenarios": ["Test with normal list", "Test with empty list", "Test with invalid inputs"]
         }
         """
-        
+
         description = "Create a function to calculate the average of a list of numbers. It should handle empty lists by returning 0."
-        
+
         result = llm_toolkit.extract_code_requirements(description)
-        
+
         assert mock_api_client.chat_completion.called
         assert isinstance(result, dict)
         assert "core_functionality" in result
@@ -289,16 +283,16 @@ class TestLLMToolkit:
     def test_explain_code(self, llm_toolkit, mock_api_client):
         """Test the explain_code method."""
         mock_api_client.get_completion.return_value = "This function calculates the average of a list of numbers. It handles empty lists by returning 0."
-        
+
         code = """
         def calculate_average(numbers):
             if not numbers:
                 return 0
             return sum(numbers) / len(numbers)
         """
-        
+
         result = llm_toolkit.explain_code(code)
-        
+
         assert mock_api_client.chat_completion.called
         assert "calculates the average" in result
         assert "handles empty lists" in result
@@ -316,16 +310,16 @@ class TestLLMToolkit:
             return sum(numbers) / len(numbers)
         ```
         """
-        
+
         code = """
         def calculate_average(numbers):
             if not numbers:
                 return 0
             return sum(numbers) / len(numbers)
         """
-        
+
         result = llm_toolkit.refactor_code(code, "extract method")
-        
+
         assert mock_api_client.chat_completion.called
         assert "def is_empty" in result
-        assert "def safe_average" in result 
+        assert "def safe_average" in result

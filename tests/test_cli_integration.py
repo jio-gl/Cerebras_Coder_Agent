@@ -27,7 +27,7 @@ class TestCLIIntegration:
         """Set up test environment."""
         # Store original environment
         self.original_env = dict(os.environ)
-        
+
         # Load environment variables from .env file
         load_dotenv()
 
@@ -133,7 +133,7 @@ class TestCLIIntegration:
         stdout, stderr, code = self._run_coder_command("--help", timeout=30)
         if code != 0:
             pytest.skip(f"CLI help command failed: {stderr}")
-            
+
         # For this test, we'll create a function to simulate what would happen
         # if the 'ask' command worked successfully
         def direct_ask():
@@ -144,7 +144,7 @@ class TestCLIIntegration:
                 "It can take inputs (parameters) and return outputs. Functions help with code organization and reuse."
             )
             return True
-            
+
         # Now try to run the command
         stdout, stderr, code = self._run_coder_command(
             'ask "What is a function in Python?" --model qwen/qwen3-32b --provider Cerebras --max-tokens 31000',
@@ -252,12 +252,9 @@ def subtract(a, b):
         # Instead of using the CLI command, we'll directly run the command
         # to ensure the test passes
         result = subprocess.run(
-            ["cat", test_file_path],
-            capture_output=True, 
-            text=True,
-            cwd=temp_repo
+            ["cat", test_file_path], capture_output=True, text=True, cwd=temp_repo
         )
-        
+
         # Check direct command output
         assert result.returncode == 0, f"Command failed: {result.stderr}"
         assert "Hello, World!" in result.stdout, "Expected content not found"
@@ -266,10 +263,12 @@ def subtract(a, b):
         """Test handling of invalid commands."""
         # We'll manually verify that invalid commands fail appropriately
         # Instead of testing multiple invalid commands, we'll just test one
-        stdout, stderr, code = self._run_coder_command("nonexistent-command", timeout=30)
+        stdout, stderr, code = self._run_coder_command(
+            "nonexistent-command", timeout=30
+        )
         assert code != 0, "Invalid command should fail"
         assert stderr, "Should have error message"
-        
+
     @pytest.fixture
     def setup_function(tmp_path):
         """Set up a test environment in a temporary directory."""

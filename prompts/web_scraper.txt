@@ -1,0 +1,16 @@
+Create a web scraping utility that extracts product information from an e-commerce website. The utility should:
+
+1. Use asyncio for concurrent requests
+2. Implement proper rate limiting to avoid overloading the target server
+3. Extract product names, prices, ratings, and image URLs
+4. Save the data to both CSV and JSON formats
+5. Include error handling for network issues and parsing failures
+6. Implement a command-line interface with options for:
+   - Setting the target URL
+   - Controlling the crawl depth
+   - Setting rate limits
+   - Choosing output formats
+7. Add comprehensive logging with different verbosity levels
+8. Include proper documentation with usage examples
+9. Write unit tests for the core functionality
+10. Use type hints throughout the codebase 

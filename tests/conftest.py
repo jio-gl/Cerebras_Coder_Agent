@@ -1,7 +1,6 @@
 """Test configuration and fixtures."""
 
 import os
-
 import pytest
 from dotenv import load_dotenv
 
@@ -25,12 +24,14 @@ def pytest_collection_modifyitems(config, items):
     """Modify collected test items based on environment conditions."""
     # Check for API key presence - don't skip tests as we have the API key
     api_key_missing = not os.getenv("OPENROUTER_API_KEY")
-    
+
     # Print a message about the API key status for debugging
     if api_key_missing:
         print("WARNING: OPENROUTER_API_KEY not found in environment.")
     else:
-        print(f"INFO: OPENROUTER_API_KEY found in environment (length: {len(os.getenv('OPENROUTER_API_KEY'))})")
+        print(
+            f"INFO: OPENROUTER_API_KEY found in environment (length: {len(os.getenv('OPENROUTER_API_KEY'))})"
+        )
 
     # Only skip tests if API key is actually missing
     if api_key_missing:

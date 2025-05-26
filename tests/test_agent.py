@@ -150,9 +150,9 @@ def test_execute_tool_call_read_file(agent):
             "type": "function",
             "function": {
                 "name": "read_file",
-                "arguments": json.dumps({"target_file": "test.py"})
+                "arguments": json.dumps({"target_file": "test.py"}),
             },
-            "id": "test_id"
+            "id": "test_id",
         }
     )
     assert "def hello()" in result
@@ -166,9 +166,9 @@ def test_execute_tool_call_list_directory(agent):
             "type": "function",
             "function": {
                 "name": "list_directory",
-                "arguments": json.dumps({"relative_workspace_path": "."})
+                "arguments": json.dumps({"relative_workspace_path": "."}),
             },
-            "id": "test_id"
+            "id": "test_id",
         }
     )
     assert "test.py" in result
@@ -183,13 +183,15 @@ def test_execute_tool_call_edit_file(agent):
             "type": "function",
             "function": {
                 "name": "edit_file",
-                "arguments": json.dumps({
-                    "target_file": "test.py",
-                    "instructions": "Update function",
-                    "code_edit": "def updated():\n    return 'Updated'\n",
-                })
+                "arguments": json.dumps(
+                    {
+                        "target_file": "test.py",
+                        "instructions": "Update function",
+                        "code_edit": "def updated():\n    return 'Updated'\n",
+                    }
+                ),
             },
-            "id": "test_id"
+            "id": "test_id",
         }
     )
     assert "File edited" in result
@@ -200,14 +202,13 @@ def test_execute_tool_call_edit_file(agent):
 def test_execute_tool_call_invalid_tool(agent):
     """Test executing invalid tool call."""
     with pytest.raises(Exception):
-        agent._execute_tool_call({
-            "type": "function",
-            "function": {
-                "name": "invalid_tool", 
-                "arguments": json.dumps({})
-            },
-            "id": "test_id"
-        })
+        agent._execute_tool_call(
+            {
+                "type": "function",
+                "function": {"name": "invalid_tool", "arguments": json.dumps({})},
+                "id": "test_id",
+            }
+        )
 
 
 @pytest.mark.integration
@@ -273,7 +274,7 @@ def test_agent_with_tool_calls(agent, monkeypatch):
                                             }
                                         ),
                                     },
-                                    "id": "call_123"
+                                    "id": "call_123",
                                 }
                             ],
                         }
@@ -289,8 +290,14 @@ def test_agent_with_tool_calls(agent, monkeypatch):
 
     monkeypatch.setattr(agent.client, "chat_completion", mock_chat_completion)
     monkeypatch.setattr(agent, "_edit_file", lambda path, content: True)
-    monkeypatch.setattr(agent, "_read_file", lambda path: "def updated():\n    return 'Updated'\n" if path == "test.py" else "")
-    
+    monkeypatch.setattr(
+        agent,
+        "_read_file",
+        lambda path: (
+            "def updated():\n    return 'Updated'\n" if path == "test.py" else ""
+        ),
+    )
+
     response = agent.agent("Update the test function")
     # Check for either the old message or the new format that includes file names
     assert any(
@@ -313,7 +320,7 @@ def test_agent_with_multiple_tool_calls(agent, monkeypatch):
                 "name": "read_file",
                 "arguments": json.dumps({"target_file": "test.py"}),
             },
-            "id": "call_123"
+            "id": "call_123",
         },
         {
             "type": "function",
@@ -327,7 +334,7 @@ def test_agent_with_multiple_tool_calls(agent, monkeypatch):
                     }
                 ),
             },
-            "id": "call_456"
+            "id": "call_456",
         },
     ]
 
@@ -353,8 +360,14 @@ def test_agent_with_multiple_tool_calls(agent, monkeypatch):
 
     monkeypatch.setattr(agent.client, "chat_completion", mock_chat_completion)
     monkeypatch.setattr(agent, "_edit_file", lambda path, content: True)
-    monkeypatch.setattr(agent, "_read_file", lambda path: "def updated():\n    return 'Updated'\n" if path == "test.py" else "")
-    
+    monkeypatch.setattr(
+        agent,
+        "_read_file",
+        lambda path: (
+            "def updated():\n    return 'Updated'\n" if path == "test.py" else ""
+        ),
+    )
+
     response = agent.agent("Read and update the test function")
     # Check for either the old message or the new format that includes file names
     assert any(

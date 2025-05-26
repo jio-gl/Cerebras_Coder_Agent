@@ -116,7 +116,7 @@ class TestToolCallExecution:
                 "name": "read_file",
                 "arguments": json.dumps({"target_file": "src/main.txt"}),
             },
-            "id": "call_123"
+            "id": "call_123",
         }
         result = agent._execute_tool_call(tool_call)
         assert "Main content" in result
@@ -129,7 +129,7 @@ class TestToolCallExecution:
                 "name": "list_directory",
                 "arguments": json.dumps({"relative_workspace_path": "src"}),
             },
-            "id": "call_456"
+            "id": "call_456",
         }
         result = agent._execute_tool_call(tool_call)
         assert "main.txt" in result
@@ -149,7 +149,7 @@ class TestToolCallExecution:
                     }
                 ),
             },
-            "id": "call_789"
+            "id": "call_789",
         }
         result = agent._execute_tool_call(tool_call)
         assert "File edited" in result
@@ -158,12 +158,9 @@ class TestToolCallExecution:
     def test_execute_invalid_tool(self, agent):
         """Test executing invalid tool call."""
         tool_call = {
-            "type": "function", 
-            "function": {
-                "name": "invalid_tool", 
-                "arguments": json.dumps({})
-            },
-            "id": "call_invalid"
+            "type": "function",
+            "function": {"name": "invalid_tool", "arguments": json.dumps({})},
+            "id": "call_invalid",
         }
         with pytest.raises(Exception):
             agent._execute_tool_call(tool_call)

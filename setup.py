@@ -47,4 +47,4 @@ setup(
             "coder=coder.cli:cli",
         ],
     },
-) 
+)

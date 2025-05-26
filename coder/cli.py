@@ -56,7 +56,7 @@ def initialize_agent(
         raise ValueError("Only qwen/qwen3-32b model is supported")
     if provider != "Cerebras":
         raise ValueError("Only Cerebras provider is supported")
-        
+
     with console.status(
         "[bold yellow]🔧 Initializing Coder Agent...", spinner="dots"
     ) as status:
@@ -105,25 +105,25 @@ def ask(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         coding_agent = initialize_agent(
             repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
         )
-        
+
         # Create a live display for question processing
         with Live(console=console, refresh_per_second=4) as live:
             # Show the question
             live.update(
                 Panel.fit(
-                f"[bold blue]🤔 Question:[/bold blue] {question}",
-                title="📝 Processing Question",
+                    f"[bold blue]🤔 Question:[/bold blue] {question}",
+                    title="📝 Processing Question",
                     border_style="blue",
                 )
             )
-            
+
             # Get the response
             response = coding_agent.ask(question)
-            
+
             # Show the formatted response
             live.update(
                 Panel.fit(Markdown(response), title="💡 Answer", border_style="green")
@@ -131,12 +131,12 @@ def ask(
     except Exception as e:
         console.print(
             Panel.fit(
-            f"[bold red]❌ Error:[/bold red] {str(e)}\n\n"
-            "[yellow]💡 Troubleshooting Tips:[/yellow]\n"
-            "• Check your API key is set correctly\n"
-            "• Verify the repository path exists\n"
-            "• Ensure you have internet connectivity",
-            title="⚠️ Error Occurred",
+                f"[bold red]❌ Error:[/bold red] {str(e)}\n\n"
+                "[yellow]💡 Troubleshooting Tips:[/yellow]\n"
+                "• Check your API key is set correctly\n"
+                "• Verify the repository path exists\n"
+                "• Ensure you have internet connectivity",
+                title="⚠️ Error Occurred",
                 border_style="red",
             )
         )
@@ -152,8 +152,10 @@ def agent(
         help="The prompt for the agent to perform changes or run commands (e.g., 'create a calculator' or 'run app.py')",
     ),
     from_file: bool = typer.Option(
-        False, "--from-file", "-f", 
-        help="Treat the prompt argument as a file path instead of a literal prompt"
+        False,
+        "--from-file",
+        "-f",
+        help="Treat the prompt argument as a file path instead of a literal prompt",
     ),
     repo: Optional[str] = typer.Option(
         None,
@@ -186,7 +188,7 @@ def agent(
     The agent can create or modify multiple files in a single operation, making it ideal
     for creating complete projects (with multiple source files, tests, and configuration files)
     or making coordinated changes across multiple files.
-    
+
     Example with file input:
         coder agent --from-file prompts/web_scraper.txt
     """
@@ -196,16 +198,16 @@ def agent(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-        
+
         # Handle prompt from file if requested
         if from_file:
             try:
-                with open(prompt, 'r') as f:
+                with open(prompt, "r") as f:
                     file_prompt = f.read().strip()
-                    
+
                 if not file_prompt:
                     raise ValueError("The prompt file is empty")
-                    
+
                 # Show the prompt being loaded
                 console.print(
                     Panel.fit(
@@ -220,7 +222,7 @@ def agent(
                 raise ValueError(f"Prompt file not found: {prompt}")
             except Exception as e:
                 raise ValueError(f"Error reading prompt file: {str(e)}")
-            
+
         # Check if this is a local command execution
         run_command_patterns = [
             r"^run\s+(.+)",
@@ -549,21 +551,21 @@ def agent(
         coding_agent = initialize_agent(
             repo, model, provider, max_tokens, debug, interactive
         )
-        
+
         # Create a live display for agent operations
         with Live(console=console, refresh_per_second=4) as live:
             # Show the agent prompt
             live.update(
                 Panel.fit(
-                f"[bold blue]🤖 Agent Task:[/bold blue] {prompt}",
-                title="🔄 Processing Request",
+                    f"[bold blue]🤖 Agent Task:[/bold blue] {prompt}",
+                    title="🔄 Processing Request",
                     border_style="blue",
                 )
             )
-            
+
             # Get the response
             response = coding_agent.agent(prompt + (" /no_think" if no_think else ""))
-            
+
             # Show the formatted response
             if "Created/modified" in response and "files:" in response:
                 # Multi-file response
@@ -586,20 +588,20 @@ def agent(
                 # Regular response
                 live.update(
                     Panel.fit(
-                Markdown(response),
-                title="✨ Changes Applied",
+                        Markdown(response),
+                        title="✨ Changes Applied",
                         border_style="green",
                     )
                 )
     except Exception as e:
         console.print(
             Panel.fit(
-            f"[bold red]❌ Error:[/bold red] {str(e)}\n\n"
-            "[yellow]💡 Troubleshooting Tips:[/yellow]\n"
-            "• Check your API key is set correctly\n"
-            "• Verify the repository path exists\n"
-            "• Ensure you have internet connectivity",
-            title="⚠️ Error Occurred",
+                f"[bold red]❌ Error:[/bold red] {str(e)}\n\n"
+                "[yellow]💡 Troubleshooting Tips:[/yellow]\n"
+                "• Check your API key is set correctly\n"
+                "• Verify the repository path exists\n"
+                "• Ensure you have internet connectivity",
+                title="⚠️ Error Occurred",
                 border_style="red",
             )
         )
@@ -638,7 +640,7 @@ def self_rewrite(
 
         repo_path = repo or os.getcwd()
         version_dir = os.path.join(repo_path, "version2")
-        
+
         # Create a live display for self-rewrite
         with Live(console=console, refresh_per_second=4) as live:
             # Initial status
@@ -651,14 +653,14 @@ def self_rewrite(
             table.add_row(Text("⏳ Phase 2: Planning", style="dim"))
             table.add_row(Text("⏳ Phase 3: Implementation", style="dim"))
             table.add_row(Text("⏳ Phase 4: Validation", style="dim"))
-            
+
             live.update(
                 Panel(table, title="🚀 Self-Rewrite Operation", border_style="yellow")
             )
-            
+
             # Get the initial analysis
             response = coding_agent.analyze_codebase()
-            
+
             # Update with planning phase
             table = Table.grid(padding=1)
             table.add_row(Text("✅ Phase 1: Analysis", style="bold green"))
@@ -669,14 +671,14 @@ def self_rewrite(
             table.add_row("")
             table.add_row(Text("⏳ Phase 3: Implementation", style="dim"))
             table.add_row(Text("⏳ Phase 4: Validation", style="dim"))
-            
+
             live.update(
                 Panel(table, title="🚀 Self-Rewrite Operation", border_style="yellow")
             )
-            
+
             # Start the rewrite process
             response = coding_agent.self_rewrite()
-            
+
             # Update with implementation phase
             table = Table.grid(padding=1)
             table.add_row(Text("✅ Phase 1: Analysis", style="bold green"))
@@ -688,11 +690,11 @@ def self_rewrite(
             table.add_row(Text("  └─ 🔍 Adding comprehensive tests"))
             table.add_row("")
             table.add_row(Text("⏳ Phase 4: Validation", style="dim"))
-            
+
             live.update(
                 Panel(table, title="🚀 Self-Rewrite Operation", border_style="yellow")
             )
-            
+
             # Final validation phase
             table = Table.grid(padding=1)
             table.add_row(Text("✅ Phase 1: Analysis", style="bold green"))
@@ -702,7 +704,7 @@ def self_rewrite(
             table.add_row(Text("  ├─ 🧪 Running test suite"))
             table.add_row(Text("  ├─ 📊 Verifying performance"))
             table.add_row(Text("  └─ ✅ Ensuring compatibility"))
-            
+
             live.update(
                 Panel(table, title="🚀 Self-Rewrite Operation", border_style="yellow")
             )
@@ -732,21 +734,27 @@ def self_rewrite(
                 success_table.add_row(Text("  ✓ Better test coverage"))
                 success_table.add_row(Text("  ✓ Updated documentation"))
                 success_table.add_row("")
-                success_table.add_row(Text("📁 New version available in:", style="yellow"))
+                success_table.add_row(
+                    Text("📁 New version available in:", style="yellow")
+                )
                 success_table.add_row(Text(f"  └─ {version_dir}/", style="cyan"))
-                
+
                 live.update(
-                    Panel(success_table, title="✨ Self-Rewrite Complete", border_style="green")
+                    Panel(
+                        success_table,
+                        title="✨ Self-Rewrite Complete",
+                        border_style="green",
+                    )
                 )
     except Exception as e:
         console.print(
             Panel.fit(
-            f"[bold red]❌ Error:[/bold red] {str(e)}\n\n"
-            "[yellow]💡 Troubleshooting Tips:[/yellow]\n"
-            "• Check your API key is set correctly\n"
-            "• Verify the repository path exists\n"
-            "• Ensure you have internet connectivity",
-            title="⚠️ Error Occurred",
+                f"[bold red]❌ Error:[/bold red] {str(e)}\n\n"
+                "[yellow]💡 Troubleshooting Tips:[/yellow]\n"
+                "• Check your API key is set correctly\n"
+                "• Verify the repository path exists\n"
+                "• Ensure you have internet connectivity",
+                title="⚠️ Error Occurred",
                 border_style="red",
             )
         )
@@ -782,11 +790,11 @@ def fix_syntax(
     ),
 ):
     """Fix Python syntax errors in a file or directory using LLM-powered analysis.
-    
+
     This command checks Python files for syntax errors and attempts to fix them
     using both heuristic techniques and LLM-powered analysis. It can process
     a single file or recursively scan all Python files in a directory.
-    
+
     Examples:
       coder fix-syntax file.py
       coder fix-syntax ./my_project/
@@ -797,11 +805,11 @@ def fix_syntax(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         coding_agent = initialize_agent(
             repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
         )
-        
+
         # Create a progress display
         progress = Progress(
             SpinnerColumn(),
@@ -810,27 +818,43 @@ def fix_syntax(
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
             TimeElapsedColumn(),
         )
-        
+
         with progress:
-            task = progress.add_task(f"[yellow]Checking {path} for syntax errors...", total=100)
-            
+            task = progress.add_task(
+                f"[yellow]Checking {path} for syntax errors...", total=100
+            )
+
             # Update progress
-            progress.update(task, advance=50, description=f"[yellow]Fixing syntax errors in {path}...")
-            
+            progress.update(
+                task,
+                advance=50,
+                description=f"[yellow]Fixing syntax errors in {path}...",
+            )
+
             # Fix syntax errors
             result = coding_agent.fix_syntax_errors(path)
-            
+
             # Complete progress
-            progress.update(task, completed=100, description=f"[green]Completed syntax check on {path}")
-        
+            progress.update(
+                task,
+                completed=100,
+                description=f"[green]Completed syntax check on {path}",
+            )
+
         # Display results with appropriate styling
         if "✓" in result:
-            console.print(Panel.fit(result, title="✅ Syntax Check", border_style="green"))
+            console.print(
+                Panel.fit(result, title="✅ Syntax Check", border_style="green")
+            )
         elif "⚠️" in result:
-            console.print(Panel.fit(result, title="⚠️ Syntax Warnings", border_style="yellow"))
+            console.print(
+                Panel.fit(result, title="⚠️ Syntax Warnings", border_style="yellow")
+            )
         else:
-            console.print(Panel.fit(result, title="❌ Syntax Errors", border_style="red"))
-            
+            console.print(
+                Panel.fit(result, title="❌ Syntax Errors", border_style="red")
+            )
+
     except Exception as e:
         console.print(
             Panel.fit(
@@ -855,9 +879,7 @@ app.add_typer(llm_tools, name="code")
 
 @llm_tools.command("analyze")
 def analyze_code(
-    file_path: str = typer.Argument(
-        ..., help="Path to the file to analyze"
-    ),
+    file_path: str = typer.Argument(..., help="Path to the file to analyze"),
     repo: Optional[str] = typer.Option(
         None,
         "--repo",
@@ -885,51 +907,53 @@ def analyze_code(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         coding_agent = initialize_agent(
             repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
         )
-        
+
         # Create a progress display
         with console.status(
             f"[bold yellow]🔍 Analyzing {file_path}...", spinner="dots"
         ) as status:
             # Run the analysis
             analysis = coding_agent.analyze_file(file_path)
-            
+
             status.update("[bold green]✨ Analysis complete!")
-        
+
         # Create a rich table to display results
         table = Table(title=f"🔍 Code Analysis: {file_path}")
-        
+
         # Add columns
         table.add_column("Metric", style="bold cyan")
         table.add_column("Value", style="green")
-        
+
         # Add rows with analysis results
         table.add_row("Complexity", str(analysis.get("complexity", "N/A")))
         table.add_row("Functions", str(analysis.get("functions", "N/A")))
         table.add_row("Classes", str(analysis.get("classes", "N/A")))
-        
+
         # Add imports as a comma-separated list
         imports = analysis.get("imports", [])
         table.add_row("Imports", ", ".join(imports) if imports else "None")
-        
+
         # Create a panel for issues and suggestions
         issues_table = Table.grid(padding=1)
         issues_table.add_row(Text("⚠️ Potential Issues:", style="bold yellow"))
         for issue in analysis.get("potential_issues", []):
             issues_table.add_row(f"  • {issue}")
-            
+
         issues_table.add_row("")
         issues_table.add_row(Text("💡 Suggestions:", style="bold blue"))
         for suggestion in analysis.get("suggestions", []):
             issues_table.add_row(f"  • {suggestion}")
-        
+
         # Display the analysis
         console.print(table)
-        console.print(Panel(issues_table, title="Issues & Suggestions", border_style="yellow"))
-        
+        console.print(
+            Panel(issues_table, title="Issues & Suggestions", border_style="yellow")
+        )
+
     except Exception as e:
         console.print(
             Panel.fit(
@@ -949,12 +973,12 @@ def analyze_code(
 
 @llm_tools.command("optimize")
 def optimize_code(
-    file_path: str = typer.Argument(
-        ..., help="Path to the file to optimize"
-    ),
+    file_path: str = typer.Argument(..., help="Path to the file to optimize"),
     goal: str = typer.Option(
-        "performance", "--goal", "-g", 
-        help="Optimization goal (performance, readability, memory)"
+        "performance",
+        "--goal",
+        "-g",
+        help="Optimization goal (performance, readability, memory)",
     ),
     repo: Optional[str] = typer.Option(
         None,
@@ -983,35 +1007,39 @@ def optimize_code(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         # Validate optimization goal
         valid_goals = ["performance", "readability", "memory"]
         if goal not in valid_goals:
-            console.print(f"[bold red]❌ Error:[/bold red] Invalid optimization goal: {goal}")
+            console.print(
+                f"[bold red]❌ Error:[/bold red] Invalid optimization goal: {goal}"
+            )
             console.print(f"[yellow]Valid goals are: {', '.join(valid_goals)}[/yellow]")
             raise typer.Exit(1)
-            
+
         coding_agent = initialize_agent(
             repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
         )
-        
+
         # Create a progress display
         with console.status(
             f"[bold yellow]🔧 Optimizing {file_path} for {goal}...", spinner="dots"
         ) as status:
             # Run the optimization
             result = coding_agent.optimize_file(file_path, goal)
-            
+
             status.update("[bold green]✨ Optimization complete!")
-        
+
         # Display the result
-        console.print(Panel.fit(
-            f"[bold green]{result}[/bold green]\n\n"
-            f"[yellow]The file has been optimized for {goal}.[/yellow]",
-            title="✅ Optimization Complete",
-            border_style="green",
-        ))
-        
+        console.print(
+            Panel.fit(
+                f"[bold green]{result}[/bold green]\n\n"
+                f"[yellow]The file has been optimized for {goal}.[/yellow]",
+                title="✅ Optimization Complete",
+                border_style="green",
+            )
+        )
+
     except Exception as e:
         console.print(
             Panel.fit(
@@ -1031,9 +1059,7 @@ def optimize_code(
 
 @llm_tools.command("docstring")
 def add_docstrings(
-    file_path: str = typer.Argument(
-        ..., help="Path to the file to add docstrings to"
-    ),
+    file_path: str = typer.Argument(..., help="Path to the file to add docstrings to"),
     repo: Optional[str] = typer.Option(
         None,
         "--repo",
@@ -1061,27 +1087,29 @@ def add_docstrings(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         coding_agent = initialize_agent(
             repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
         )
-        
+
         # Create a progress display
         with console.status(
             f"[bold yellow]📝 Adding docstrings to {file_path}...", spinner="dots"
         ) as status:
             # Add docstrings
             result = coding_agent.add_docstrings(file_path)
-            
+
             status.update("[bold green]✨ Docstrings added/improved!")
-        
+
         # Display the result
-        console.print(Panel.fit(
-            f"[bold green]{result}[/bold green]",
-            title="✅ Docstrings Added",
-            border_style="green",
-        ))
-        
+        console.print(
+            Panel.fit(
+                f"[bold green]{result}[/bold green]",
+                title="✅ Docstrings Added",
+                border_style="green",
+            )
+        )
+
     except Exception as e:
         console.print(
             Panel.fit(
@@ -1101,12 +1129,12 @@ def add_docstrings(
 
 @llm_tools.command("tests")
 def generate_tests(
-    file_path: str = typer.Argument(
-        ..., help="Path to the file to generate tests for"
-    ),
+    file_path: str = typer.Argument(..., help="Path to the file to generate tests for"),
     output_path: Optional[str] = typer.Option(
-        None, "--output", "-o", 
-        help="Path to write the test file (default: auto-generate in tests/ directory)"
+        None,
+        "--output",
+        "-o",
+        help="Path to write the test file (default: auto-generate in tests/ directory)",
     ),
     repo: Optional[str] = typer.Option(
         None,
@@ -1135,27 +1163,29 @@ def generate_tests(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         coding_agent = initialize_agent(
             repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
         )
-        
+
         # Create a progress display
         with console.status(
             f"[bold yellow]🧪 Generating tests for {file_path}...", spinner="dots"
         ) as status:
             # Generate tests
             result = coding_agent.generate_tests(file_path, output_path)
-            
+
             status.update("[bold green]✨ Tests generated!")
-        
+
         # Display the result
-        console.print(Panel.fit(
-            f"[bold green]{result}[/bold green]",
-            title="✅ Tests Generated",
-            border_style="green",
-        ))
-        
+        console.print(
+            Panel.fit(
+                f"[bold green]{result}[/bold green]",
+                title="✅ Tests Generated",
+                border_style="green",
+            )
+        )
+
     except Exception as e:
         console.print(
             Panel.fit(
@@ -1205,27 +1235,29 @@ def enhance_error_handling(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         coding_agent = initialize_agent(
             repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
         )
-        
+
         # Create a progress display
         with console.status(
             f"[bold yellow]🛡️ Enhancing error handling in {file_path}...", spinner="dots"
         ) as status:
             # Enhance error handling
             result = coding_agent.enhance_error_handling(file_path)
-            
+
             status.update("[bold green]✨ Error handling enhanced!")
-        
+
         # Display the result
-        console.print(Panel.fit(
-            f"[bold green]{result}[/bold green]",
-            title="✅ Error Handling Enhanced",
-            border_style="green",
-        ))
-        
+        console.print(
+            Panel.fit(
+                f"[bold green]{result}[/bold green]",
+                title="✅ Error Handling Enhanced",
+                border_style="green",
+            )
+        )
+
     except Exception as e:
         console.print(
             Panel.fit(
@@ -1245,12 +1277,12 @@ def enhance_error_handling(
 
 @llm_tools.command("explain")
 def explain_code(
-    file_path: str = typer.Argument(
-        ..., help="Path to the file to explain"
-    ),
+    file_path: str = typer.Argument(..., help="Path to the file to explain"),
     level: str = typer.Option(
-        "detailed", "--level", "-l", 
-        help="Explanation level (basic, detailed, advanced)"
+        "detailed",
+        "--level",
+        "-l",
+        help="Explanation level (basic, detailed, advanced)",
     ),
     repo: Optional[str] = typer.Option(
         None,
@@ -1279,34 +1311,41 @@ def explain_code(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         # Validate explanation level
         valid_levels = ["basic", "detailed", "advanced"]
         if level not in valid_levels:
-            console.print(f"[bold red]❌ Error:[/bold red] Invalid explanation level: {level}")
-            console.print(f"[yellow]Valid levels are: {', '.join(valid_levels)}[/yellow]")
+            console.print(
+                f"[bold red]❌ Error:[/bold red] Invalid explanation level: {level}"
+            )
+            console.print(
+                f"[yellow]Valid levels are: {', '.join(valid_levels)}[/yellow]"
+            )
             raise typer.Exit(1)
-            
+
         coding_agent = initialize_agent(
             repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
         )
-        
+
         # Create a progress display
         with console.status(
-            f"[bold yellow]📚 Generating {level} explanation for {file_path}...", spinner="dots"
+            f"[bold yellow]📚 Generating {level} explanation for {file_path}...",
+            spinner="dots",
         ) as status:
             # Generate explanation
             explanation = coding_agent.explain_code(file_path, level)
-            
+
             status.update("[bold green]✨ Explanation generated!")
-        
+
         # Display the explanation
-        console.print(Panel(
-            Markdown(explanation),
-            title=f"📚 {level.capitalize()} Explanation of {file_path}",
-            border_style="green",
-        ))
-        
+        console.print(
+            Panel(
+                Markdown(explanation),
+                title=f"📚 {level.capitalize()} Explanation of {file_path}",
+                border_style="green",
+            )
+        )
+
     except Exception as e:
         console.print(
             Panel.fit(
@@ -1326,9 +1365,7 @@ def explain_code(
 
 @llm_tools.command("refactor")
 def refactor_code(
-    file_path: str = typer.Argument(
-        ..., help="Path to the file to refactor"
-    ),
+    file_path: str = typer.Argument(..., help="Path to the file to refactor"),
     goal: str = typer.Argument(
         ..., help="Refactoring goal (e.g., 'extract method', 'apply factory pattern')"
     ),
@@ -1359,27 +1396,30 @@ def refactor_code(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         coding_agent = initialize_agent(
             repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
         )
-        
+
         # Create a progress display
         with console.status(
-            f"[bold yellow]🔄 Refactoring {file_path} with goal: {goal}...", spinner="dots"
+            f"[bold yellow]🔄 Refactoring {file_path} with goal: {goal}...",
+            spinner="dots",
         ) as status:
             # Refactor code
             result = coding_agent.refactor_code(file_path, goal)
-            
+
             status.update("[bold green]✨ Refactoring complete!")
-        
+
         # Display the result
-        console.print(Panel.fit(
-            f"[bold green]{result}[/bold green]",
-            title="✅ Refactoring Complete",
-            border_style="green",
-        ))
-        
+        console.print(
+            Panel.fit(
+                f"[bold green]{result}[/bold green]",
+                title="✅ Refactoring Complete",
+                border_style="green",
+            )
+        )
+
     except Exception as e:
         console.print(
             Panel.fit(
@@ -1403,8 +1443,10 @@ def generate_markdown_docs(
         ..., help="Path to the Python file to generate Markdown documentation for"
     ),
     output_path: Optional[str] = typer.Option(
-        None, "--output", "-o", 
-        help="Path to write the Markdown file (default: auto-generate .md file with same name)"
+        None,
+        "--output",
+        "-o",
+        help="Path to write the Markdown file (default: auto-generate .md file with same name)",
     ),
     repo: Optional[str] = typer.Option(
         None,
@@ -1433,11 +1475,11 @@ def generate_markdown_docs(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         agent = initialize_agent(
             repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
         )
-        
+
         # Create default output path if not provided
         if not output_path:
             path_obj = Path(file_path)
@@ -1452,30 +1494,32 @@ def generate_markdown_docs(
             console=console,
         ) as progress:
             task = progress.add_task("Generating Markdown documentation...", total=1)
-            
+
             # Read the file
             try:
-                with open(file_path, 'r') as f:
+                with open(file_path, "r") as f:
                     code = f.read()
             except Exception as e:
                 console.print(f"[bold red]Error reading file:[/bold red] {str(e)}")
                 raise typer.Exit(1)
-            
+
             # Generate Markdown docs
             progress.update(task, description="Generating Markdown documentation...")
             markdown_content = agent.llm_toolkit.generate_markdown_docs(code)
-            
+
             # Write to output file
             progress.update(task, description="Writing Markdown file...")
             try:
-                with open(output_path, 'w') as f:
+                with open(output_path, "w") as f:
                     f.write(markdown_content)
             except Exception as e:
                 console.print(f"[bold red]Error writing file:[/bold red] {str(e)}")
                 raise typer.Exit(1)
-            
-            progress.update(task, completed=1, description="Documentation generated successfully!")
-        
+
+            progress.update(
+                task, completed=1, description="Documentation generated successfully!"
+            )
+
         # Show success message
         console.print(
             Panel.fit(
@@ -1484,7 +1528,7 @@ def generate_markdown_docs(
                 border_style="green",
             )
         )
-        
+
     except Exception as e:
         console.print(
             Panel.fit(
@@ -1530,11 +1574,11 @@ def fix_python_syntax(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         agent = initialize_agent(
             repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
         )
-        
+
         # Progress display
         with Progress(
             SpinnerColumn(),
@@ -1544,24 +1588,26 @@ def fix_python_syntax(
             console=console,
         ) as progress:
             task = progress.add_task("Checking for syntax errors...", total=1)
-            
+
             # Read the file
             try:
-                with open(file_path, 'r') as f:
+                with open(file_path, "r") as f:
                     code = f.read()
             except Exception as e:
                 console.print(f"[bold red]Error reading file:[/bold red] {str(e)}")
                 raise typer.Exit(1)
-            
+
             # Check for syntax errors
             has_syntax_errors = False
             try:
-                compile(code, file_path, 'exec')
+                compile(code, file_path, "exec")
             except SyntaxError:
                 has_syntax_errors = True
-            
+
             if not has_syntax_errors:
-                progress.update(task, completed=1, description="No syntax errors found!")
+                progress.update(
+                    task, completed=1, description="No syntax errors found!"
+                )
                 console.print(
                     Panel.fit(
                         f"[bold green]✨ File has no syntax errors:[/bold green] {file_path}",
@@ -1570,22 +1616,24 @@ def fix_python_syntax(
                     )
                 )
                 return
-            
+
             # Fix syntax errors
             progress.update(task, description="Fixing syntax errors...")
             fixed_code = agent.llm_toolkit.fix_python_syntax(code)
-            
+
             # Write the fixed code
             progress.update(task, description="Saving fixed code...")
             try:
-                with open(file_path, 'w') as f:
+                with open(file_path, "w") as f:
                     f.write(fixed_code)
             except Exception as e:
                 console.print(f"[bold red]Error writing file:[/bold red] {str(e)}")
                 raise typer.Exit(1)
-            
-            progress.update(task, completed=1, description="Syntax errors fixed successfully!")
-        
+
+            progress.update(
+                task, completed=1, description="Syntax errors fixed successfully!"
+            )
+
         # Show success message
         console.print(
             Panel.fit(
@@ -1594,7 +1642,7 @@ def fix_python_syntax(
                 border_style="green",
             )
         )
-        
+
     except Exception as e:
         console.print(
             Panel.fit(
@@ -1637,11 +1685,11 @@ def prompt_from_file(
     ),
 ):
     """Execute a prompt from a text file.
-    
+
     This command reads a prompt from a text file and passes it to the agent.
     Useful for complex or multi-line prompts that would be difficult to type
     on the command line.
-    
+
     Example:
         coder prompt-from-file prompts/web_scraper.txt
     """
@@ -1651,15 +1699,15 @@ def prompt_from_file(
             raise ValueError("Only qwen/qwen3-32b model is supported")
         if provider != "Cerebras":
             raise ValueError("Only Cerebras provider is supported")
-            
+
         # Read the prompt from the file
         try:
-            with open(prompt_file, 'r') as f:
+            with open(prompt_file, "r") as f:
                 prompt = f.read().strip()
-                
+
             if not prompt:
                 raise ValueError("The prompt file is empty")
-                
+
             # Show the prompt being loaded
             console.print(
                 Panel.fit(
@@ -1668,31 +1716,35 @@ def prompt_from_file(
                     border_style="blue",
                 )
             )
-            
+
             # Pass the prompt to the agent function
             coding_agent = initialize_agent(
                 repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
             )
-            
+
             # Create a live display for agent operation
             with Live(console=console, refresh_per_second=4) as live:
                 # Show prompt processing status
                 live.update(
                     create_status_table(
-                        "Processing prompt", "Analyzing and executing actions...", "running"
+                        "Processing prompt",
+                        "Analyzing and executing actions...",
+                        "running",
                     )
                 )
-                
+
                 # Execute the agent with the prompt from the file
                 result = coding_agent.agent(prompt + (" /no_think" if no_think else ""))
-                
+
                 # Show the formatted response
                 if "Created/modified" in result and "files:" in result:
                     # Multi-file response
                     files_created = result.split("files:\n- ")[1].split("\n- ")
 
                     table = Table.grid(padding=1)
-                    table.add_row(Text("✨ Created/modified files:", style="bold green"))
+                    table.add_row(
+                        Text("✨ Created/modified files:", style="bold green")
+                    )
 
                     for file in files_created:
                         table.add_row(Text(f"  ✓ {file.strip()}", style="green"))
@@ -1713,12 +1765,12 @@ def prompt_from_file(
                             border_style="green",
                         )
                     )
-                
+
         except FileNotFoundError:
             raise ValueError(f"Prompt file not found: {prompt_file}")
         except Exception as e:
             raise ValueError(f"Error reading prompt file: {str(e)}")
-            
+
     except Exception as e:
         console.print(
             Panel.fit(
@@ -1740,4 +1792,4 @@ def prompt_from_file(
 cli = app
 
 if __name__ == "__main__":
-    app() 
+    app()
