@@ -35,7 +35,9 @@ def mock_llm_toolkit():
 def mock_api_client():
     """Create a mock API client."""
     mock_client = Mock()
-    mock_client.chat_completion.return_value = {"choices": [{"message": {"content": "test response"}}]}
+    mock_client.chat_completion.return_value = {
+        "choices": [{"message": {"content": "test response"}}]
+    }
     mock_client.get_completion.return_value = "test response"
     return mock_client
 
@@ -75,7 +77,7 @@ class TestAgentLLMTools:
     def test_analyze_file(self, sample_python_file, mock_llm_toolkit, mock_api_client):
         """Test the analyze_file method."""
         # Create agent with mocked toolkit and API client
-        with patch('coder.agent.OpenRouterClient', return_value=mock_api_client):
+        with patch("coder.agent.OpenRouterClient", return_value=mock_api_client):
             agent = CodingAgent(debug=True, api_key="test-key")
             agent.llm_toolkit = mock_llm_toolkit
 
@@ -99,7 +101,7 @@ class TestAgentLLMTools:
     def test_optimize_file(self, sample_python_file, mock_llm_toolkit, mock_api_client):
         """Test the optimize_file method."""
         # Create agent with mocked toolkit and API client
-        with patch('coder.agent.OpenRouterClient', return_value=mock_api_client):
+        with patch("coder.agent.OpenRouterClient", return_value=mock_api_client):
             agent = CodingAgent(debug=True, api_key="test-key")
             agent.llm_toolkit = mock_llm_toolkit
 
@@ -121,10 +123,12 @@ class TestAgentLLMTools:
                 assert "performance" in result
 
     @pytest.mark.requires_api_key
-    def test_add_docstrings(self, sample_python_file, mock_llm_toolkit, mock_api_client):
+    def test_add_docstrings(
+        self, sample_python_file, mock_llm_toolkit, mock_api_client
+    ):
         """Test the add_docstrings method."""
         # Create agent with mocked toolkit and API client
-        with patch('coder.agent.OpenRouterClient', return_value=mock_api_client):
+        with patch("coder.agent.OpenRouterClient", return_value=mock_api_client):
             agent = CodingAgent(debug=True, api_key="test-key")
             agent.llm_toolkit = mock_llm_toolkit
 
@@ -145,10 +149,12 @@ class TestAgentLLMTools:
                 assert "✨ Added/improved docstrings" in result
 
     @pytest.mark.requires_api_key
-    def test_generate_tests(self, sample_python_file, mock_llm_toolkit, mock_api_client):
+    def test_generate_tests(
+        self, sample_python_file, mock_llm_toolkit, mock_api_client
+    ):
         """Test the generate_tests method."""
         # Create agent with mocked toolkit and API client
-        with patch('coder.agent.OpenRouterClient', return_value=mock_api_client):
+        with patch("coder.agent.OpenRouterClient", return_value=mock_api_client):
             agent = CodingAgent(debug=True, api_key="test-key")
             agent.llm_toolkit = mock_llm_toolkit
 
@@ -168,10 +174,12 @@ class TestAgentLLMTools:
                 assert "✨ Generated tests" in result
 
     @pytest.mark.requires_api_key
-    def test_enhance_error_handling(self, sample_python_file, mock_llm_toolkit, mock_api_client):
+    def test_enhance_error_handling(
+        self, sample_python_file, mock_llm_toolkit, mock_api_client
+    ):
         """Test the enhance_error_handling method."""
         # Create agent with mocked toolkit and API client
-        with patch('coder.agent.OpenRouterClient', return_value=mock_api_client):
+        with patch("coder.agent.OpenRouterClient", return_value=mock_api_client):
             agent = CodingAgent(debug=True, api_key="test-key")
             agent.llm_toolkit = mock_llm_toolkit
 
@@ -195,7 +203,7 @@ class TestAgentLLMTools:
     def test_explain_code(self, sample_python_file, mock_llm_toolkit, mock_api_client):
         """Test the explain_code method."""
         # Create agent with mocked toolkit and API client
-        with patch('coder.agent.OpenRouterClient', return_value=mock_api_client):
+        with patch("coder.agent.OpenRouterClient", return_value=mock_api_client):
             agent = CodingAgent(debug=True, api_key="test-key")
             agent.llm_toolkit = mock_llm_toolkit
 
@@ -212,7 +220,7 @@ class TestAgentLLMTools:
     def test_refactor_code(self, sample_python_file, mock_llm_toolkit, mock_api_client):
         """Test the refactor_code method."""
         # Create agent with mocked toolkit and API client
-        with patch('coder.agent.OpenRouterClient', return_value=mock_api_client):
+        with patch("coder.agent.OpenRouterClient", return_value=mock_api_client):
             agent = CodingAgent(debug=True, api_key="test-key")
             agent.llm_toolkit = mock_llm_toolkit
 

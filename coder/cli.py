@@ -1242,7 +1242,8 @@ def enhance_error_handling(
 
         # Create a progress display
         with console.status(
-            f"[bold yellow]🛡️ Enhancing error handling in {file_path}...", spinner="dots"
+            f"[bold yellow]🛡️ Enhancing error handling in {file_path}...",
+            spinner="dots",
         ) as status:
             # Enhance error handling
             result = coding_agent.enhance_error_handling(file_path)
@@ -1742,9 +1743,7 @@ def prompt_from_file(
                     files_created = result.split("files:\n- ")[1].split("\n- ")
 
                     table = Table.grid(padding=1)
-                    table.add_row(
-                        Text("✨ Created/modified files:", style="bold green")
-                    )
+                    table.add_row(Text("✨ Created/modified files:", style="bold green"))
 
                     for file in files_created:
                         table.add_row(Text(f"  ✓ {file.strip()}", style="green"))

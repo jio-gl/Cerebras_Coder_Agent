@@ -345,9 +345,7 @@ def test_hello_world():
         assert len(self.validator.results) == 5  # All validation steps
 
         # Check that success messages were printed
-        success_calls = [
-            call for call in mock_print.call_args_list if "✅" in str(call)
-        ]
+        success_calls = [call for call in mock_print.call_args_list if "✅" in str(call)]
         assert len(success_calls) == 5
 
     @patch("subprocess.run")
@@ -387,12 +385,8 @@ def test_hello_world():
         assert result is False
 
         # Check that both success and failure messages were printed
-        success_calls = [
-            call for call in mock_print.call_args_list if "✅" in str(call)
-        ]
-        failure_calls = [
-            call for call in mock_print.call_args_list if "❌" in str(call)
-        ]
+        success_calls = [call for call in mock_print.call_args_list if "✅" in str(call)]
+        failure_calls = [call for call in mock_print.call_args_list if "❌" in str(call)]
         assert len(success_calls) >= 1  # Some should pass
         assert len(failure_calls) >= 1  # Some should fail
 
