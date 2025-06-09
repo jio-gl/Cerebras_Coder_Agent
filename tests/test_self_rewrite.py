@@ -426,7 +426,6 @@ def test_api_initialization():
         ) as mock_run, patch(
             "shutil.copy2"
         ) as mock_copy:
-
             # Create a dummy version directory
             version_dir = self.temp_dir / f"version2_{os.urandom(4).hex()}"
             version_dir.mkdir(parents=True, exist_ok=True)
@@ -473,7 +472,6 @@ def test_api_initialization():
         ) as mock_create_backup, patch.object(
             self.agent, "_rollback"
         ) as mock_rollback:
-
             # Create a dummy backup dir
             mock_backup_dir = self.temp_dir / "backup_test"
             mock_backup_dir.mkdir()
@@ -490,7 +488,6 @@ def test_api_initialization():
             ), patch(
                 "subprocess.run"
             ) as mock_run:
-
                 # Make create_version_directory return a new directory path each time
                 version_dir = self.temp_dir / f"version2_{os.urandom(4).hex()}"
                 version_dir.mkdir(parents=True, exist_ok=True)
@@ -525,7 +522,6 @@ def test_api_initialization():
         ), patch(
             "subprocess.run"
         ) as mock_run:
-
             # Create a dummy backup dir
             mock_backup_dir = self.temp_dir / "backup_test"
             mock_backup_dir.mkdir()
@@ -542,7 +538,6 @@ def test_api_initialization():
             ) as mock_create_dir, patch.object(
                 self.agent, "_generate_improved_specs", return_value="# Mock specs"
             ):
-
                 # Make create_version_directory return a new directory path each time
                 version_dir = self.temp_dir / f"version2_{os.urandom(4).hex()}"
                 version_dir.mkdir(parents=True, exist_ok=True)
