@@ -34,7 +34,7 @@ jobs:
     - name: Install dependencies (no cache)
       run: |
         python -m pip install --upgrade pip --no-cache-dir
-        pip install --no-cache-dir flake8 black isort
+        pip install --no-cache-dir flake8 black==25.1.0 isort
         if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
         
     - name: Run flake8
@@ -43,7 +43,9 @@ jobs:
         
     - name: Check formatting with black
       run: |
-        black --check coder/ tests/
+        echo "Black version:" && black --version
+        echo "Running black --check with diff output..."
+        black --check --diff coder/ tests/
         
     - name: Check import order with isort
       run: |

@@ -1,0 +1,67 @@
+\begin{tikzpicture}[
+    node distance=1.8cm,
+    auto,
+    decision/.style={diamond, draw, fill=yellow!20, text width=2.2cm, text centered, inner sep=0pt, minimum height=1.5cm},
+    process/.style={rectangle, draw, fill=blue!20, text width=2.8cm, text centered, rounded corners, minimum height=1.2cm},
+    terminal/.style={rectangle, draw, fill=green!20, text width=2.2cm, text centered, rounded corners, minimum height=1cm},
+    line/.style={draw, -latex'},
+    dashed_line/.style={draw, -latex', dashed}
+]
+
+% Start
+\node [terminal] (start) {Tool Request};
+
+% Intent Classification
+\node [decision, below of=start, yshift=-0.5cm] (classify) {Classify Intent};
+
+% Tool Selection Branches
+\node [process, below left of=classify, xshift=-3.5cm, yshift=-1.5cm] (file_tool) {File Operations};
+\node [process, below of=classify, yshift=-1.5cm] (analysis_tool) {Code Analysis};
+\node [process, below right of=classify, xshift=3.5cm, yshift=-1.5cm] (llm_tool) {LLM Toolkit};
+
+% Execution Steps
+\node [process, below of=file_tool, yshift=-0.5cm] (validate_file) {Validate Parameters};
+\node [process, below of=analysis_tool, yshift=-0.5cm] (validate_analysis) {Parse Code};
+\node [process, below of=llm_tool, yshift=-0.5cm] (validate_llm) {Prepare Prompt};
+
+% Security Check
+\node [decision, below of=validate_analysis, yshift=-0.8cm] (security) {Security Check};
+
+% Execution
+\node [process, below of=security, yshift=-1cm] (execute) {Execute Tool};
+
+% Error Handling
+\node [process, right of=security, xshift=4cm] (error_handle) {Error Handler};
+
+% Result Processing
+\node [process, below of=execute, yshift=-0.5cm] (process_result) {Process Result};
+
+% Output
+\node [terminal, below of=process_result, yshift=-0.5cm] (output) {Return Result};
+
+% Connections
+\path [line] (start) -- (classify);
+\path [line] (classify) -- node[left, xshift=-0.5cm] {file ops} (file_tool);
+\path [line] (classify) -- node[above] {analysis} (analysis_tool);
+\path [line] (classify) -- node[right, xshift=0.5cm] {LLM} (llm_tool);
+
+\path [line] (file_tool) -- (validate_file);
+\path [line] (analysis_tool) -- (validate_analysis);
+\path [line] (llm_tool) -- (validate_llm);
+
+\path [line] (validate_file) -| (security);
+\path [line] (validate_analysis) -- (security);
+\path [line] (validate_llm) -| (security);
+
+\path [line] (security) -- node[left] {pass} (execute);
+\path [line] (security) -- node[above] {fail} (error_handle);
+
+\path [line] (execute) -- (process_result);
+\path [line] (process_result) -- (output);
+
+\path [dashed_line] (error_handle) |- (output);
+
+% Feedback loop
+\path [line, dashed, bend right=70] (output) to node[right, xshift=0.5cm] {context} (start);
+
+\end{tikzpicture} 
