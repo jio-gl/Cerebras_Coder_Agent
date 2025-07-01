@@ -1,0 +1,41 @@
+\begin{tikzpicture}[
+    node distance=1.4cm and 2.2cm,
+    process/.style={rectangle, draw, rounded corners, minimum width=2.7cm, minimum height=1cm, align=center, fill=blue!10},
+    decision/.style={diamond, draw, aspect=2, minimum width=2.2cm, minimum height=1.2cm, align=center, inner sep=1pt, fill=white},
+    io/.style={rectangle, draw, minimum width=2.7cm, minimum height=1cm, align=center, fill=white},
+    arrow/.style={->, thick},
+    font=\sffamily
+]
+% Main vertical flow
+\node[io] (input) {Input\\Request};
+\node[process, below=of input] (parse) {Parse \\ Analyze};
+\node[decision, below=of parse] (needtool) {Tool\\Needed?};
+\node[process, below=of needtool] (select) {Select Tool};
+\node[process, below=of select] (execute) {Execute Tool};
+\node[decision, below=of execute] (success) {Success?};
+\node[process, below=of success] (validate) {Validate Result};
+\node[decision, below=of validate] (complete) {Complete?};
+\node[io, below=of complete] (output) {Final\\Output};
+% Side nodes (close to decision points)
+\node[process, right=1.8cm of needtool] (fallback) {Fallback\\Strategy};
+\node[process, right=1.8cm of success] (retry) {Retry\\Logic};
+\node[process, right=1.8cm of validate] (refine) {Refine\\Result};
+% Main arrows
+\draw[arrow] (input) -- (parse);
+\draw[arrow] (parse) -- (needtool);
+\draw[arrow] (needtool) -- node[left, font=\footnotesize] {Yes} (select);
+\draw[arrow] (select) -- (execute);
+\draw[arrow] (execute) -- (success);
+\draw[arrow] (success) -- node[left, font=\footnotesize] {Yes} (validate);
+\draw[arrow] (validate) -- (complete);
+\draw[arrow] (complete) -- node[left, font=\footnotesize] {Yes} (output);
+% Fallback branch
+\draw[arrow] (needtool) -- node[above, font=\footnotesize] {No} (fallback);
+\draw[arrow] (fallback) |- (select);
+% Retry branch
+\draw[arrow] (success) -- node[above, font=\footnotesize] {No} (retry);
+\draw[arrow] (retry) |- (execute);
+% Refine branch
+\draw[arrow] (complete) -- node[above, font=\footnotesize] {No} (refine);
+\draw[arrow] (refine) |- (validate);
+\end{tikzpicture} 

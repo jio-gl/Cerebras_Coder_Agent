@@ -1,0 +1,27 @@
+\begin{tikzpicture}[
+    node distance=1.8cm and 2.5cm,
+    box/.style={rectangle, draw, rounded corners, minimum width=2.7cm, minimum height=1cm, align=center, fill=white},
+    api/.style={rectangle, draw, thick, minimum width=3.2cm, minimum height=1.2cm, align=center, fill=blue!15},
+    tool/.style={ellipse, draw, minimum width=2.2cm, minimum height=1cm, align=center, fill=white},
+    arrow/.style={->, thick},
+    group/.style={draw, dashed, inner sep=0.5cm, rounded corners},
+    font=\sffamily
+]
+% Main vertical flow
+\node[box] (input) {User Input \\ \& Context};
+\node[api, below=of input] (llm) {Cerebras LLM API\\(Black Box)};
+\node[box, below=of llm] (tools) {Tool Execution\\Framework};
+\node[box, below=of tools] (output) {Generated Code\\\& Analysis};
+% Tool ecosystem (left)
+\node[tool, left=2.5cm of tools] (tool1) {Testing};
+\node[tool, above=0.8cm of tool1] (tool2) {Validation};
+\node[tool, below=0.8cm of tool1] (tool3) {Equivalence};
+% Arrows main flow
+\draw[arrow] (input) -- (llm);
+\draw[arrow] (llm) -- (tools);
+\draw[arrow] (tools) -- (output);
+% Arrows to tools
+\draw[arrow] (tools) -- (tool1);
+\draw[arrow] (tools) -- (tool2);
+\draw[arrow] (tools) -- (tool3);
+\end{tikzpicture} 
