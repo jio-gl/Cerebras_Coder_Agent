@@ -51,21 +51,15 @@ def initialize_agent(
     interactive: bool = False,
 ) -> CodingAgent:
     """Initialize the coding agent with the given parameters."""
-    # Enforce fixed model and provider
-    if model != "qwen/qwen3-32b":
-        raise ValueError("Only qwen/qwen3-32b model is supported")
-    if provider != "Cerebras":
-        raise ValueError("Only Cerebras provider is supported")
-
     with console.status(
         "[bold yellow]🔧 Initializing Coder Agent...", spinner="dots"
     ) as status:
         coding_agent = CodingAgent(
             repo_path=repo or os.getcwd(),
-            model="qwen/qwen3-32b",  # Enforce fixed model
+            model=model,
             api_key=None,
             max_tokens=max_tokens,
-            provider="Cerebras",  # Enforce fixed provider
+            provider=provider,
             debug=debug,
             interactive=interactive,
         )
@@ -100,14 +94,8 @@ def ask(
 ):
     """Ask a question about the repository without making changes."""
     try:
-        # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
-
         coding_agent = initialize_agent(
-            repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            repo, model, provider, max_tokens, debug, interactive
         )
 
         # Create a live display for question processing
@@ -193,11 +181,6 @@ def agent(
         coder agent --from-file prompts/web_scraper.txt
     """
     try:
-        # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         # Handle prompt from file if requested
         if from_file:
@@ -801,13 +784,9 @@ def fix_syntax(
     """
     try:
         # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         coding_agent = initialize_agent(
-            repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            repo, model, provider, max_tokens, debug, interactive
         )
 
         # Create a progress display
@@ -903,13 +882,9 @@ def analyze_code(
     """Analyze a file for code quality, complexity, and potential issues."""
     try:
         # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         coding_agent = initialize_agent(
-            repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            repo, model, provider, max_tokens, debug, interactive
         )
 
         # Create a progress display
@@ -1003,10 +978,6 @@ def optimize_code(
     """Optimize a file for performance, readability, or memory usage."""
     try:
         # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         # Validate optimization goal
         valid_goals = ["performance", "readability", "memory"]
@@ -1018,7 +989,7 @@ def optimize_code(
             raise typer.Exit(1)
 
         coding_agent = initialize_agent(
-            repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            repo, model, provider, max_tokens, debug, interactive
         )
 
         # Create a progress display
@@ -1083,13 +1054,9 @@ def add_docstrings(
     """Add or improve docstrings in a file."""
     try:
         # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         coding_agent = initialize_agent(
-            repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            repo, model, provider, max_tokens, debug, interactive
         )
 
         # Create a progress display
@@ -1159,13 +1126,9 @@ def generate_tests(
     """Generate unit tests for a file."""
     try:
         # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         coding_agent = initialize_agent(
-            repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            repo, model, provider, max_tokens, debug, interactive
         )
 
         # Create a progress display
@@ -1231,13 +1194,9 @@ def enhance_error_handling(
     """Enhance error handling in a file."""
     try:
         # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         coding_agent = initialize_agent(
-            repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            repo, model, provider, max_tokens, debug, interactive
         )
 
         # Create a progress display
@@ -1308,10 +1267,6 @@ def explain_code(
     """Generate a natural language explanation of a file."""
     try:
         # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         # Validate explanation level
         valid_levels = ["basic", "detailed", "advanced"]
@@ -1325,7 +1280,7 @@ def explain_code(
             raise typer.Exit(1)
 
         coding_agent = initialize_agent(
-            repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            repo, model, provider, max_tokens, debug, interactive
         )
 
         # Create a progress display
@@ -1393,13 +1348,9 @@ def refactor_code(
     """Refactor code according to a specific goal."""
     try:
         # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         coding_agent = initialize_agent(
-            repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            repo, model, provider, max_tokens, debug, interactive
         )
 
         # Create a progress display
@@ -1472,13 +1423,9 @@ def generate_markdown_docs(
     """Generate Markdown documentation for Python code."""
     try:
         # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         agent = initialize_agent(
-            repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            repo, model, provider, max_tokens, debug, interactive
         )
 
         # Create default output path if not provided
@@ -1571,13 +1518,9 @@ def fix_python_syntax(
     """Fix Python syntax errors in a file."""
     try:
         # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         agent = initialize_agent(
-            repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+            repo, model, provider, max_tokens, debug, interactive
         )
 
         # Progress display
@@ -1696,10 +1639,6 @@ def prompt_from_file(
     """
     try:
         # Enforce fixed model and provider
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
 
         # Read the prompt from the file
         try:
@@ -1720,7 +1659,7 @@ def prompt_from_file(
 
             # Pass the prompt to the agent function
             coding_agent = initialize_agent(
-                repo, "qwen/qwen3-32b", "Cerebras", max_tokens, debug, interactive
+                repo, model, provider, max_tokens, debug, interactive
             )
 
             # Create a live display for agent operation

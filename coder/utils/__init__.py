@@ -1,16 +1,27 @@
-"""Utility modules for the coder package."""
+"""Utility modules for the coding agent."""
 
-from .equivalence import EquivalenceChecker, EquivalenceResult
+from .equivalence import EquivalenceChecker
 from .llm_tools import LLMToolkit
 from .validation import CodeValidator, ValidationResult
-from .version_manager import VersionInfo, VersionManager
+from .version_manager import VersionManager
+from .decision_engine import DecisionEngine, State, Tool, ToolType
+from .performance_tracker import PerformanceTracker, CodeQualityMetrics, PerformanceRecord
+from .adaptive_learner import AdaptiveLearner, LearningParameters, LearningRecord
 
 __all__ = [
-    "CodeValidator",
     "EquivalenceChecker",
-    "EquivalenceResult",
-    "VersionManager",
-    "VersionInfo",
+    "LLMToolkit", 
+    "CodeValidator",
     "ValidationResult",
-    "LLMToolkit",
+    "VersionManager",
+    "DecisionEngine",
+    "State",
+    "Tool", 
+    "ToolType",
+    "PerformanceTracker",
+    "CodeQualityMetrics",
+    "PerformanceRecord",
+    "AdaptiveLearner",
+    "LearningParameters",
+    "LearningRecord"
 ]

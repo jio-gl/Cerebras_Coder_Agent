@@ -17,10 +17,7 @@ class OpenRouterClient:
         self, api_key: str, provider: str = "Cerebras", max_tokens: int = 31000
     ):
         self.api_key = api_key
-        # Enforce fixed provider
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
-        self.provider = "Cerebras"
+        self.provider = provider
         self.max_tokens = max_tokens
         if not self.api_key:
             raise ValueError(
@@ -65,25 +62,20 @@ class OpenRouterClient:
         Returns:
             Dict containing the API response
         """
-        # Enforce fixed model
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-
         if max_tokens is None:
             max_tokens = self.max_tokens
 
-        # Enforce fixed provider
-        if provider is not None and provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
-        provider = "Cerebras"
+        # Use provided model and provider, with defaults
+        if provider is None:
+            provider = "Cerebras"  # Default provider
 
         data = {
-            "model": "qwen/qwen3-32b",  # Enforce fixed model
+            "model": model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": stream,
-            "provider": {"only": ["Cerebras"]},  # Enforce fixed provider
+            "provider": {"only": [provider]},
         }
 
         if tools:
@@ -142,8 +134,15 @@ class OpenRouterClient:
 
         if response.status_code != 200:
             error_msg = f"API request failed with status {response.status_code}"
-            if not IN_TEST_MODE:
-                error_msg += f": {response.text}"
+            # Try to include error message from response body
+            try:
+                error_json = response.json()
+                if "error" in error_json and "message" in error_json["error"]:
+                    error_msg += f": {error_json['error']['message']}"
+            except Exception:
+                # Fallback to plain text if not JSON
+                if hasattr(response, 'text'):
+                    error_msg += f": {response.text}"
             raise Exception(error_msg)
 
         return response.json()
@@ -157,13 +156,14 @@ class OpenRouterClient:
         print(f"Response status: {response.status_code}")
 
         if response.status_code != 200:
-            # Reduce verbosity in test mode
-            if IN_TEST_MODE:
-                error_msg = f"API request failed with status {response.status_code}"
-            else:
-                print(f"Response body: {response.text}")
-                error_msg = f"API request failed: {response.text}"
-
+            error_msg = f"API request failed with status {response.status_code}"
+            try:
+                error_json = response.json()
+                if "error" in error_json and "message" in error_json["error"]:
+                    error_msg += f": {error_json['error']['message']}"
+            except Exception:
+                if hasattr(response, 'text'):
+                    error_msg += f": {response.text}"
             raise Exception(error_msg)
 
         # Reconstruct the response from streaming chunks

@@ -41,24 +41,16 @@ class CodingAgent:
     ):
         self.repo_path = repo_path or os.getcwd()
 
-        # Enforce fixed model
-        if model != "qwen/qwen3-32b":
-            raise ValueError("Only qwen/qwen3-32b model is supported")
-        self.model = "qwen/qwen3-32b"
-
+        self.model = model
         self.debug = debug
         self.interactive = interactive
-
-        # Enforce fixed provider
-        if provider != "Cerebras":
-            raise ValueError("Only Cerebras provider is supported")
-        self.provider = "Cerebras"
+        self.provider = provider
 
         # Don't store API key directly in the instance to prevent accidental exposure
         # Instead, just pass it to the client
         self._client = OpenRouterClient(
             api_key=api_key or os.getenv("OPENROUTER_API_KEY"),
-            provider="Cerebras",  # Enforce fixed provider
+            provider=provider,
         )
         self.no_think = no_think
         self.max_tokens = max_tokens
